@@ -1,4 +1,4 @@
-import { supabaseConfig, SESSIONS_TABLE, CATALOG_TABLE } from "./supabase-config.js";
+import { supabaseConfig, SESSIONS_TABLE, CATALOG_TABLE, TEMPLATE_TABLE } from "./supabase-config.js";
 
 /* ============================================================
    DÍAS DE CAPACITACIÓN FIJOS (Día 1 a Día 5)
@@ -18,10 +18,65 @@ const diaById = id => DIAS.find(f => f.id === id);
 const FASES_GENERAL = ["Fase 1", "Fase 2", "Fase 3"];
 
 /* ============================================================
+   PLANTILLA DE AGENDA (roles/módulos/duración por día)
+   Se usa como valor por default al crear una semana nueva con
+   "Asignar semana", para no tener que capturar cada rol/módulo a
+   mano. Arranca con los valores reales de la agenda general que
+   nos compartieron (agrupando por día todos los roles y módulos
+   que aparecen, y sumando la duración de cada bloque); se puede
+   reemplazar en cualquier momento desde "Importar agenda".
+   ============================================================ */
+const BUILTIN_TEMPLATE = {
+  dia1: {
+    duracion: 360, // 6 h
+    roles: ["Gerentes y directivos de UDN", "Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)",
+      "Jefe de coordinadores", "Coordinador de Operaciones", "Seguridad Vial", "RP", "Administración", "Facturación",
+      "Técnico de Rutas", "Operador de monitoreo", "Jefe de Cabina", "Ajustador", "Jefe de logística",
+      "Gerente General de UDN", "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"],
+    modulos: ["Landing Page / Agenda", "Clientes, Unidades y Operadores", "Supervisores", "Agente compañero de viaje",
+      "Rutas", "Programación maestra", "Incidencias", "Agente clasificador de incidencias", "Aprobaciones"],
+  },
+  dia2: {
+    duracion: 360, // 6 h
+    roles: ["Logística Operativa (MAE)", "Jefe de coordinadores", "Coordinador de Operaciones", "Técnico de Rutas",
+      "Gerente de logística", "Gerente de Operaciones", "Jefe de logística", "Gerente General de UDN",
+      "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"],
+    modulos: ["Clientes, Unidades y Operadores", "Supervisores", "Agente compañero de viaje", "Rutas",
+      "Programación maestra", "Incidencias", "Agente clasificador de incidencias", "Aprobaciones"],
+  },
+  dia3: {
+    duracion: 300, // 5 h
+    roles: ["Jefe de coordinadores", "Coordinador de Operaciones", "Logística Operativa (MAE)", "Técnico de Rutas",
+      "Gerente de logística", "Gerente de Operaciones", "Jefe de logística", "Gerente General de UDN",
+      "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"],
+    modulos: ["Supervisores", "Agente compañero de viaje", "Incidencias", "Agente clasificador de incidencias",
+      "Rutas", "Programación maestra", "Aprobaciones"],
+  },
+  dia4: {
+    duracion: 300, // 5 h
+    roles: ["Jefe de coordinadores", "Coordinador de Operaciones", "Logística Operativa (MAE)", "Técnico de Rutas",
+      "Gerente de logística", "Gerente de Operaciones", "Jefe de logística", "Gerente General de UDN",
+      "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"],
+    modulos: ["Incidencias", "Agente clasificador de incidencias", "Rutas", "Programación maestra", "Aprobaciones"],
+  },
+  dia5: {
+    duracion: 225, // 3 h 45 min
+    roles: ["Jefe de coordinadores", "Coordinador de Operaciones", "Logística Operativa (MAE)", "Técnico de Rutas",
+      "Gerentes y directivos de UDN"],
+    modulos: ["Agente compañero de viaje", "Incidencias", "Agente clasificador de incidencias", "Rutas",
+      "Programación maestra", "Sesión de cierre"],
+  },
+};
+// `agendaTemplate` es el que realmente se usa en la app: arranca igual al
+// default de arriba, pero se puede reemplazar con "Importar agenda" (y esa
+// versión importada es la que se guarda en la nube para que la vean todos).
+let agendaTemplate = JSON.parse(JSON.stringify(BUILTIN_TEMPLATE));
+
+/* ============================================================
    ESTADO Y MODO DE CONEXIÓN
    ============================================================ */
 let sessions = [];
-let catalogs = { udn: [], roles: [], areas: [], modulos: [], implementadores: [] };
+let catalogs = { udn: [], roles: [], modulos: [], implementadores: [] };
 let mode = "demo";
 let supabase = null;
 
@@ -44,11 +99,6 @@ function seedCatalogs() {
     "Jefe de Operaciones", "Logística Operativa (MAE)", "Monitoreo (Cabina)", "Operador", "Técnico de Rutas",
     "Tecnología a Bordo",
   ];
-  catalogs.areas = [
-    "Activos / Gestoría", "Administración", "Administración (Facturación)", "Administración (Finanzas)",
-    "Almacén", "Calidad", "Capital Humano", "Combustibles", "Comercial", "Comunicación", "Logística",
-    "Mantenimiento", "Nóminas", "Operaciones", "Proyectos", "Relaciones Públicas", "Seguridad Vial", "Sistemas",
-  ];
   catalogs.modulos = [
     "Landing Page / Agenda", "Clientes, Unidades y Operadores", "Supervisores", "Agente compañero de viaje",
     "Rutas", "Programación maestra", "Incidencias", "Agente clasificador de incidencias", "Aprobaciones",
@@ -64,7 +114,7 @@ function seedDemoSessions() {
   let n = 0;
   const mk = (udn, diaId, fase, offset, modalidad, lugar, modulos, roles, implementadores) => ({
     id: "demo-" + (++n), udn, diaId, fase, date: d(offset), start: "09:00", duration: 90,
-    modalidad, lugar, modulos, roles, areas: [], implementadores: implementadores || [],
+    modalidad, lugar, modulos, roles, implementadores: implementadores || [],
     objetivo: diaById(diaId).objetivo, notas: "", hallazgos: [],
   });
   sessions = [
@@ -93,7 +143,6 @@ function rowToSession(row) {
     notas: row.notas,
     modulos: row.modulos || [],
     roles: row.roles || [],
-    areas: row.areas || [],
     implementadores: row.implementadores || [],
     hallazgos: row.hallazgos || [],
   };
@@ -112,7 +161,6 @@ function sessionToRow(data) {
     notas: data.notas || null,
     modulos: data.modulos || [],
     roles: data.roles || [],
-    areas: data.areas || [],
     implementadores: data.implementadores || [],
     hallazgos: data.hallazgos || [],
   };
@@ -127,7 +175,7 @@ async function fetchSessions() {
 async function fetchCatalogs() {
   const { data, error } = await supabase.from(CATALOG_TABLE).select("*").order("id", { ascending: true });
   if (error) { console.error("[Agenda MIND] Error leyendo catálogos:", error); return; }
-  const grouped = { udn: [], roles: [], areas: [], modulos: [], implementadores: [] };
+  const grouped = { udn: [], roles: [], modulos: [], implementadores: [] };
   (data || []).forEach(row => { (grouped[row.kind] ??= []).push(row.value); });
   catalogs = grouped;
   populateStaticSelects();
@@ -139,6 +187,29 @@ async function seedCatalogsInSupabase() {
   Object.entries(catalogs).forEach(([kind, values]) => values.forEach(value => rows.push({ kind, value })));
   const { error } = await supabase.from(CATALOG_TABLE).insert(rows);
   if (error) console.error("[Agenda MIND] No se pudo sembrar el catálogo inicial:", error);
+}
+
+/* ============================================================
+   PERSISTENCIA — PLANTILLA DE AGENDA (roles/módulos/duración por día)
+   ============================================================ */
+async function fetchTemplate() {
+  const { data, error } = await supabase.from(TEMPLATE_TABLE).select("*");
+  if (error) { console.error("[Agenda MIND] Error leyendo la plantilla de agenda:", error); return; }
+  const grouped = {};
+  (data || []).forEach(row => {
+    grouped[row.dia_id] = { roles: row.roles || [], modulos: row.modulos || [], duracion: row.duracion || 0 };
+  });
+  if (Object.keys(grouped).length) agendaTemplate = grouped;
+}
+async function seedTemplateInSupabase() {
+  const rows = Object.entries(BUILTIN_TEMPLATE).map(([dia_id, t]) => ({ dia_id, roles: t.roles, modulos: t.modulos, duracion: t.duracion }));
+  const { error } = await supabase.from(TEMPLATE_TABLE).insert(rows);
+  if (error) console.error("[Agenda MIND] No se pudo sembrar la plantilla inicial:", error);
+}
+async function saveTemplateToSupabase(partialTemplate) {
+  const rows = Object.entries(partialTemplate).map(([dia_id, t]) => ({ dia_id, roles: t.roles, modulos: t.modulos, duracion: t.duracion }));
+  const { error } = await supabase.from(TEMPLATE_TABLE).upsert(rows, { onConflict: "dia_id" });
+  if (error) console.error("[Agenda MIND] Error guardando la plantilla de agenda:", error);
 }
 
 async function initBackend() {
@@ -161,8 +232,15 @@ async function initBackend() {
     if (countErr) throw countErr;
     if (!count) await seedCatalogsInSupabase();
 
+    const { count: tplCount, error: tplCountErr } = await supabase
+      .from(TEMPLATE_TABLE)
+      .select("*", { count: "exact", head: true });
+    if (tplCountErr) throw tplCountErr;
+    if (!tplCount) await seedTemplateInSupabase();
+
     await fetchCatalogs();
     await fetchSessions();
+    await fetchTemplate();
 
     const onRealtimeIssue = (label) => (status) => {
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
@@ -179,6 +257,10 @@ async function initBackend() {
       .channel("catalogos-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: CATALOG_TABLE }, () => fetchCatalogs())
       .subscribe(onRealtimeIssue(CATALOG_TABLE));
+    supabase
+      .channel("plantilla-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: TEMPLATE_TABLE }, () => fetchTemplate())
+      .subscribe(onRealtimeIssue(TEMPLATE_TABLE));
 
     mode = "cloud";
     setConnBadge(true);
@@ -318,7 +400,6 @@ function populateStaticSelects() {
   fillSelectObjects("f_dia", DIAS, "Seleccionar día...", false);
   fillDatalist("modulosList", catalogs.modulos);
   fillDatalist("rolesList", catalogs.roles);
-  fillDatalist("areasList", catalogs.areas);
   fillDatalist("implementadoresList", catalogs.implementadores);
   renderCatalogLists();
 }
@@ -347,7 +428,7 @@ function sessionMatchesFilters(s, { ignoreUdn = false } = {}) {
     const dia = diaById(s.diaId);
     const hay = [
       s.udn, s.fase, dia ? dia.nombre : "", s.objetivo, s.lugar,
-      ...(s.modulos || []), ...(s.roles || []), ...(s.areas || []), ...(s.implementadores || []),
+      ...(s.modulos || []), ...(s.roles || []), ...(s.implementadores || []),
       ...(s.hallazgos || []).map(h => h.texto),
     ].join(" ").toLowerCase();
     if (!hay.includes(q)) return false;
@@ -596,7 +677,8 @@ function updateWeekPreview() {
   const preview = document.getElementById("weekPreview");
   if (!startVal) { preview.textContent = ""; return; }
   const dates = computeWeekdayDates(startVal, DIAS.length);
-  preview.textContent = `Se programarán del ${fmtDateShort(dates[0])} al ${fmtDateShort(dates[dates.length - 1])} (Día 1 a Día ${DIAS.length}, en días hábiles consecutivos).`;
+  const durTxt = DIAS.map(dia => agendaTemplate[dia.id]?.duracion ? fmtDuration(agendaTemplate[dia.id].duracion) : "sin plantilla").join(", ");
+  preview.textContent = `Se programarán del ${fmtDateShort(dates[0])} al ${fmtDateShort(dates[dates.length - 1])} (Día 1 a Día ${DIAS.length}, en días hábiles consecutivos). Duración por día según tu plantilla: ${durTxt}.`;
 }
 document.getElementById("week_start").addEventListener("input", updateWeekPreview);
 
@@ -633,20 +715,20 @@ async function createWeekForUdn(udn, opts) {
   for (let i = 0; i < DIAS.length; i++) {
     const dia = DIAS[i];
     if (existingDiaIds.has(dia.id)) continue; // no duplicar días ya programados
+    const tpl = agendaTemplate[dia.id];
     await saveSession({
       udn,
       fase,
       diaId: dia.id,
       date: dates[i],
       start: startTime,
-      duration: Number(duration),
+      duration: tpl?.duracion ? Number(tpl.duracion) : Number(duration),
       modalidad,
       lugar: lugar || "",
       objetivo: dia.objetivo,
       notas: "",
-      modulos: [],
-      roles: [],
-      areas: [],
+      modulos: tpl?.modulos ? [...tpl.modulos] : [],
+      roles: tpl?.roles ? [...tpl.roles] : [],
       implementadores: [],
       hallazgos: [],
     });
@@ -741,7 +823,7 @@ function openReplicateModal(sourceUdn) {
   document.getElementById("replicateModalTitle").textContent = `Replicar agenda de ${sourceUdn}`;
   const diasTxt = agenda.map(s => "Día " + (diaById(s.diaId)?.dia ?? "?")).join(", ");
   document.getElementById("replicateExplain").textContent =
-    `Se copian las mismas ${agenda.length} ${agenda.length === 1 ? "sesión" : "sesiones"} (${diasTxt}) — fase, modalidad, objetivo, módulos, roles, áreas e implementadores — a cada UDN que marques abajo. Cada una usa su propia fecha de inicio (Día 1); los demás días se acomodan en los siguientes días hábiles, igual que "Asignar semana". No se copian fechas ni hallazgos.`;
+    `Se copian las mismas ${agenda.length} ${agenda.length === 1 ? "sesión" : "sesiones"} (${diasTxt}) — fase, modalidad, objetivo, módulos, roles e implementadores — a cada UDN que marques abajo. Cada una usa su propia fecha de inicio (Día 1); los demás días se acomodan en los siguientes días hábiles, igual que "Asignar semana". No se copian fechas ni hallazgos.`;
   document.getElementById("replicateSearch").value = "";
   document.getElementById("replicateResultNote").textContent = "";
   const saveBtn = document.getElementById("replicateSaveBtn");
@@ -777,7 +859,6 @@ async function replicateAgendaToUdn(sourceAgenda, targetUdn, startDate) {
       notas: "",
       modulos: [...(src.modulos || [])],
       roles: [...(src.roles || [])],
-      areas: [...(src.areas || [])],
       implementadores: [...(src.implementadores || [])],
       hallazgos: [], // los hallazgos son de cada sesión real; no tiene sentido copiarlos
     });
@@ -834,7 +915,6 @@ function sessionCardHtml(s) {
       ${s.objetivo ? `<div style="font-size:12.5px;color:var(--gray-600)">${escapeHtml(s.objetivo)}</div>` : ""}
       ${(s.modulos || []).length ? `<div><div class="field-label-mini">Módulos</div><div class="taglist">${s.modulos.map(m => `<span>${escapeHtml(m)}</span>`).join("")}</div></div>` : ""}
       ${(s.roles || []).length ? `<div><div class="field-label-mini">Roles</div><div class="taglist roles">${s.roles.map(r => `<span>${escapeHtml(r)}</span>`).join("")}</div></div>` : ""}
-      ${(s.areas || []).length ? `<div><div class="field-label-mini">Áreas</div><div class="taglist areas">${s.areas.map(a => `<span>${escapeHtml(a)}</span>`).join("")}</div></div>` : ""}
       ${(s.implementadores || []).length ? `<div><div class="field-label-mini">Implementador(es)</div><div class="taglist impl">${s.implementadores.map(i => `<span>${escapeHtml(i)}</span>`).join("")}</div></div>` : ""}
       ${(s.hallazgos || []).length ? `<div class="tchip" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;align-self:flex-start">${s.hallazgos.length} hallazgo${s.hallazgos.length > 1 ? "s" : ""}</div>` : ""}
       <div class="card-actions">
@@ -855,6 +935,7 @@ function sessionCompactRowHtml(s) {
       <span class="compact-time">${s.start}–${endLabel}</span>
       <span class="compact-badge" style="background:${dia.bg};border-color:${dia.border};color:${dia.color}">Día ${dia.dia || ""}</span>
       <span class="compact-name" title="${escapeHtml(dia.nombre)}">${escapeHtml(dia.nombre)}</span>
+      ${s.modulos && s.modulos.length ? `<span class="compact-modulos" title="${escapeHtml(s.modulos.join(", "))}">${escapeHtml(s.modulos.join(", "))}</span>` : ""}
       ${s.fase ? `<span class="tchip" style="background:var(--gray-100);border-color:var(--gray-200);color:var(--gray-700)">${escapeHtml(s.fase)}</span>` : ""}
       <span class="tchip t-modal ${modClass}">${escapeHtml(s.modalidad)}</span>
       ${conflicts.length ? `<span class="tchip" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626" title="Choque de sala con otra sesión">Choque</span>` : ""}
@@ -865,7 +946,7 @@ function sessionCompactRowHtml(s) {
 }
 
 function renderCatalogLists() {
-  ["udn", "roles", "areas", "modulos", "implementadores"].forEach(kind => {
+  ["udn", "roles", "modulos", "implementadores"].forEach(kind => {
     const list = document.getElementById("list-" + kind);
     document.getElementById("cnt-" + kind).textContent = catalogs[kind].length;
     list.innerHTML = catalogs[kind].length
@@ -882,7 +963,7 @@ function renderCatalogLists() {
    ============================================================ */
 const backdrop = document.getElementById("modalBackdrop");
 const form = document.getElementById("sessionForm");
-let formTags = { modulos: [], roles: [], areas: [], implementadores: [] };
+let formTags = { modulos: [], roles: [], implementadores: [] };
 let formHallazgos = [];
 let currentModalidad = "Virtual (Teams)";
 
@@ -897,7 +978,7 @@ function setModalidad(value) {
 document.querySelectorAll("#modSeg button").forEach(btn => btn.addEventListener("click", () => setModalidad(btn.dataset.mod)));
 
 function renderTagChips(kind) {
-  const containers = { modulos: "modulosTags", roles: "rolesTags", areas: "areasTags", implementadores: "implementadoresTags" };
+  const containers = { modulos: "modulosTags", roles: "rolesTags", implementadores: "implementadoresTags" };
   const el = document.getElementById(containers[kind]);
   el.innerHTML = formTags[kind].map(v => `<span class="tagchip">${escapeHtml(v)}<button type="button" data-kind="${kind}" data-val="${escapeHtml(v)}">✕</button></span>`).join("");
   el.querySelectorAll("button").forEach(b => b.onclick = () => {
@@ -915,9 +996,8 @@ function addTag(kind, inputId) {
 }
 document.getElementById("addModuloBtn").onclick = () => addTag("modulos", "modulosInput");
 document.getElementById("addRolBtn").onclick = () => addTag("roles", "rolesInput");
-document.getElementById("addAreaBtn").onclick = () => addTag("areas", "areasInput");
 document.getElementById("addImplementadorBtn").onclick = () => addTag("implementadores", "implementadoresInput");
-[["modulosInput", "modulos"], ["rolesInput", "roles"], ["areasInput", "areas"], ["implementadoresInput", "implementadores"]].forEach(([inputId, kind]) => {
+[["modulosInput", "modulos"], ["rolesInput", "roles"], ["implementadoresInput", "implementadores"]].forEach(([inputId, kind]) => {
   document.getElementById(inputId).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addTag(kind, inputId); } });
 });
 
@@ -948,7 +1028,7 @@ document.getElementById("hallazgoTexto").addEventListener("keydown", e => { if (
 
 function openModal(session = null, prefill = {}) {
   form.reset();
-  formTags = { modulos: [], roles: [], areas: [], implementadores: [] };
+  formTags = { modulos: [], roles: [], implementadores: [] };
   formHallazgos = [];
   document.getElementById("conflictWarning").textContent = "";
   document.getElementById("sessionId").value = session?.id || "";
@@ -972,10 +1052,17 @@ function openModal(session = null, prefill = {}) {
     document.getElementById("f_notas").value = session.notas || "";
     formTags.modulos = [...(session.modulos || [])];
     formTags.roles = [...(session.roles || [])];
-    formTags.areas = [...(session.areas || [])];
     formTags.implementadores = [...(session.implementadores || [])];
     formHallazgos = (session.hallazgos || []).map(h => ({ ...h }));
     setModalidad(session.modalidad || "Virtual (Teams)");
+    // Si esta sesión se guardó sin módulos/roles (ej. de una versión anterior
+    // o capturada a mano), se sugieren los de la plantilla de ese día — sin
+    // pisar lo que la sesión ya traiga.
+    const existingTpl = agendaTemplate[session.diaId];
+    if (existingTpl) {
+      if (!formTags.modulos.length) formTags.modulos = [...existingTpl.modulos];
+      if (!formTags.roles.length) formTags.roles = [...existingTpl.roles];
+    }
   } else {
     document.getElementById("f_date").value = prefill.date || new Date().toISOString().slice(0, 10);
     document.getElementById("f_udn").value = prefill.udn || "";
@@ -987,10 +1074,16 @@ function openModal(session = null, prefill = {}) {
     if (prefill.diaId) {
       document.getElementById("f_dia").value = prefill.diaId;
       document.getElementById("f_objetivo").value = diaById(prefill.diaId)?.objetivo || "";
+      const tpl = agendaTemplate[prefill.diaId];
+      if (tpl) {
+        formTags.modulos = [...tpl.modulos];
+        formTags.roles = [...tpl.roles];
+        if (tpl.duracion) document.getElementById("f_duration").value = tpl.duracion;
+      }
     }
     setModalidad("Virtual (Teams)");
   }
-  renderTagChips("modulos"); renderTagChips("roles"); renderTagChips("areas"); renderTagChips("implementadores");
+  renderTagChips("modulos"); renderTagChips("roles"); renderTagChips("implementadores");
   renderHallazgos();
   checkConflictPreview();
   backdrop.classList.add("show");
@@ -1005,6 +1098,15 @@ backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
 document.getElementById("f_dia").addEventListener("change", (e) => {
   const dia = diaById(e.target.value);
   if (dia) document.getElementById("f_objetivo").value = dia.objetivo;
+  // Igual que el objetivo, se sugieren módulos y roles según la plantilla de
+  // ese día — pero sin pisar lo que ya hayas agregado a mano en el formulario.
+  const tpl = agendaTemplate[e.target.value];
+  if (tpl) {
+    if (!formTags.modulos.length) { formTags.modulos = [...tpl.modulos]; renderTagChips("modulos"); }
+    if (!formTags.roles.length) { formTags.roles = [...tpl.roles]; renderTagChips("roles"); }
+    const isNewSession = !document.getElementById("sessionId").value;
+    if (isNewSession && tpl.duracion) document.getElementById("f_duration").value = tpl.duracion;
+  }
 });
 
 document.getElementById("deleteBtn").onclick = async () => {
@@ -1049,7 +1151,6 @@ form.addEventListener("submit", async (e) => {
     notas: document.getElementById("f_notas").value.trim(),
     modulos: [...formTags.modulos],
     roles: [...formTags.roles],
-    areas: [...formTags.areas],
     implementadores: [...formTags.implementadores],
     hallazgos: [...formHallazgos],
   };
@@ -1087,7 +1188,7 @@ document.querySelectorAll("#catalogModal [data-cat]").forEach(btn => {
     input.value = "";
   };
 });
-["udn", "roles", "areas", "modulos", "implementadores"].forEach(kind => {
+["udn", "roles", "modulos", "implementadores"].forEach(kind => {
   document.getElementById("input-" + kind).addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); addCatalogItem(kind, e.target.value); e.target.value = ""; }
   });
@@ -1124,7 +1225,6 @@ document.getElementById("exportIcsBtn").onclick = () => {
         s.objetivo ? "Objetivo: " + s.objetivo : "",
         (s.roles || []).length ? "Roles: " + s.roles.join(", ") : "",
         (s.modulos || []).length ? "Módulos: " + s.modulos.join(", ") : "",
-        (s.areas || []).length ? "Áreas: " + s.areas.join(", ") : "",
         (s.implementadores || []).length ? "Implementadores: " + s.implementadores.join(", ") : "",
       ].filter(Boolean).join("\\n")}`,
       "END:VEVENT"
@@ -1135,11 +1235,11 @@ document.getElementById("exportIcsBtn").onclick = () => {
 };
 
 document.getElementById("exportCsvBtn").onclick = () => {
-  const header = ["UDN", "Fase", "Día", "Fecha", "Inicio", "Duración (min)", "Modalidad", "Sala/Link", "Objetivo", "Módulos", "Roles", "Áreas", "Implementadores", "Hallazgos"];
+  const header = ["UDN", "Fase", "Día", "Fecha", "Inicio", "Duración (min)", "Modalidad", "Sala/Link", "Objetivo", "Módulos", "Roles", "Implementadores", "Hallazgos"];
   const rows = sessions.map(s => {
     const dia = diaById(s.diaId) || { nombre: "" };
     return [s.udn, s.fase || "", dia.nombre, s.date, s.start, s.duration, s.modalidad, s.lugar, s.objetivo,
-      (s.modulos || []).join("; "), (s.roles || []).join("; "), (s.areas || []).join("; "),
+      (s.modulos || []).join("; "), (s.roles || []).join("; "),
       (s.implementadores || []).join("; "), (s.hallazgos || []).map(h => `${h.fecha}: ${h.texto}`).join("; ")];
   });
   const csv = [header, ...rows].map(r => r.map(csvEscape).join(",")).join("\r\n");
@@ -1153,6 +1253,221 @@ function downloadFile(name, content, type) {
   a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
 }
+
+/* ============================================================
+   MODAL: EXPORTAR HALLAZGOS (todas las UDN o las que se elijan)
+   ============================================================ */
+const hallazgosExportModal = document.getElementById("hallazgosExportModal");
+let hallazgosExportSelected = new Set();
+
+function getUdnsConHallazgos() {
+  const set = new Set();
+  sessions.forEach(s => { if ((s.hallazgos || []).length) set.add(s.udn); });
+  return catalogs.udn.filter(u => set.has(u));
+}
+
+function renderHallazgosExportList(filterText) {
+  const list = document.getElementById("hallazgosExportList");
+  const q = (filterText || "").trim().toLowerCase();
+  const udns = getUdnsConHallazgos().filter(u => !q || u.toLowerCase().includes(q));
+  if (!udns.length) {
+    list.innerHTML = `<div class="catempty">Ninguna UDN tiene hallazgos registrados todavía.</div>`;
+    return;
+  }
+  list.innerHTML = udns.map(u => {
+    const checked = hallazgosExportSelected.has(u);
+    const n = sessions.filter(s => s.udn === u).reduce((acc, s) => acc + (s.hallazgos || []).length, 0);
+    return `<div class="replrow${checked ? " checked" : ""}" data-udn="${escapeHtml(u)}">
+      <label>
+        <input type="checkbox" class="hexp-check" ${checked ? "checked" : ""}>
+        <span title="${escapeHtml(u)}">${escapeHtml(u)}</span>
+      </label>
+      <span class="replnote">${n} hallazgo${n === 1 ? "" : "s"}</span>
+    </div>`;
+  }).join("");
+  list.querySelectorAll(".replrow").forEach(row => {
+    const u = row.dataset.udn;
+    const chk = row.querySelector(".hexp-check");
+    chk.onchange = () => {
+      row.classList.toggle("checked", chk.checked);
+      if (chk.checked) hallazgosExportSelected.add(u); else hallazgosExportSelected.delete(u);
+    };
+  });
+}
+document.getElementById("hallazgosExportSearch").addEventListener("input", (e) => renderHallazgosExportList(e.target.value));
+document.getElementById("hallazgosExportSelectAllBtn").onclick = () => {
+  getUdnsConHallazgos().forEach(u => hallazgosExportSelected.add(u));
+  renderHallazgosExportList(document.getElementById("hallazgosExportSearch").value);
+};
+document.getElementById("hallazgosExportClearAllBtn").onclick = () => {
+  hallazgosExportSelected = new Set();
+  renderHallazgosExportList(document.getElementById("hallazgosExportSearch").value);
+};
+document.getElementById("exportHallazgosBtn").onclick = () => {
+  hallazgosExportSelected = new Set(getUdnsConHallazgos()); // por default, todas marcadas
+  document.getElementById("hallazgosExportSearch").value = "";
+  document.getElementById("hallazgosExportNote").textContent = "";
+  renderHallazgosExportList("");
+  hallazgosExportModal.classList.add("show");
+};
+function closeHallazgosExportModal() { hallazgosExportModal.classList.remove("show"); }
+document.getElementById("hallazgosExportCloseTop").onclick = closeHallazgosExportModal;
+document.getElementById("hallazgosExportCancelBtn").onclick = closeHallazgosExportModal;
+hallazgosExportModal.onclick = (e) => { if (e.target === hallazgosExportModal) closeHallazgosExportModal(); };
+document.getElementById("hallazgosExportSaveBtn").onclick = () => {
+  if (!hallazgosExportSelected.size) {
+    document.getElementById("hallazgosExportNote").textContent = "Marca al menos una UDN.";
+    return;
+  }
+  const header = ["UDN", "Día", "Fecha de sesión", "Fecha de hallazgo", "Hallazgo"];
+  const rows = [];
+  sessions
+    .filter(s => hallazgosExportSelected.has(s.udn))
+    .forEach(s => {
+      const dia = diaById(s.diaId) || { nombre: "" };
+      (s.hallazgos || []).forEach(h => rows.push([s.udn, dia.nombre, s.date, h.fecha || "", h.texto]));
+    });
+  if (!rows.length) {
+    document.getElementById("hallazgosExportNote").textContent = "Las UDN marcadas no tienen hallazgos registrados.";
+    return;
+  }
+  const csv = [header, ...rows].map(r => r.map(csvEscape).join(",")).join("\r\n");
+  downloadFile("hallazgos-mind.csv", csv, "text/csv");
+  closeHallazgosExportModal();
+};
+
+/* ============================================================
+   MODAL: IMPORTAR AGENDA (plantilla por día desde Excel/CSV)
+   ============================================================ */
+const templateModal = document.getElementById("templateModal");
+let pendingTemplate = null;
+
+function parseDiaNumber(text) {
+  const m = String(text || "").match(/(\d)/);
+  return m ? Number(m[1]) : null;
+}
+function parseDurationToMinutes(text) {
+  if (text === "" || text === null || text === undefined) return 0;
+  const s = String(text).toLowerCase();
+  const hMatch = s.match(/(\d+(?:[.,]\d+)?)\s*h/);
+  const mMatch = s.match(/(\d+)\s*m(?:in)?/);
+  let mins = 0;
+  if (hMatch) mins += Math.round(parseFloat(hMatch[1].replace(",", ".")) * 60);
+  if (mMatch) mins += parseInt(mMatch[1], 10);
+  if (!hMatch && !mMatch) {
+    const num = parseFloat(s.replace(",", "."));
+    if (!isNaN(num)) mins = Math.round(num);
+  }
+  return mins;
+}
+function splitRoles(cell) {
+  // Los roles en la hoja de origen vienen separados por ";" o por ",".
+  return String(cell || "").split(/[;,\n]/).map(v => v.trim()).filter(Boolean);
+}
+function splitModulos(cell) {
+  // Los módulos NO se separan por coma: algunos nombres de módulo tienen una
+  // coma dentro (ej. "Clientes, Unidades y Operadores"), así que solo se
+  // separan por ";" o salto de línea (como cuando una celda combina dos
+  // módulos en dos líneas, ej. "Rutas" + "Programación maestra").
+  return String(cell || "").split(/[;\n]/).map(v => v.trim()).filter(Boolean);
+}
+function addUnique(arr, values) {
+  values.forEach(v => { if (!arr.some(x => x.toLowerCase() === v.toLowerCase())) arr.push(v); });
+}
+
+async function parseTemplateWorkbook(file) {
+  const XLSX = await import("https://esm.sh/xlsx@0.18.5");
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  if (!rows.length) throw new Error("El archivo no tiene filas de datos.");
+
+  const headerKeys = Object.keys(rows[0]);
+  const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const findKey = (...patterns) => headerKeys.find(k => patterns.some(p => norm(k).includes(p)));
+  const kDia = findKey("dia");
+  const kRoles = findKey("rol");
+  const kModulos = findKey("modulo");
+  const kDuracion = findKey("duracion total") || findKey("duracion");
+  if (!kDia || !kRoles || !kModulos) {
+    throw new Error('No se encontraron columnas de "Día", "Rol(es)" y "Módulos" en el archivo. Revisa los encabezados de tu hoja.');
+  }
+
+  const result = {};
+  let lastDiaNum = null;
+  rows.forEach(row => {
+    const diaRaw = String(row[kDia] || "").trim();
+    const diaNum = diaRaw ? parseDiaNumber(diaRaw) : null;
+    if (diaNum) lastDiaNum = diaNum;
+    const effectiveDia = diaNum || lastDiaNum;
+    if (!effectiveDia || effectiveDia < 1 || effectiveDia > DIAS.length) return;
+    const diaId = "dia" + effectiveDia;
+    result[diaId] ??= { roles: [], modulos: [], duracion: 0 };
+    addUnique(result[diaId].roles, splitRoles(row[kRoles]));
+    addUnique(result[diaId].modulos, splitModulos(row[kModulos]));
+    if (kDuracion) result[diaId].duracion += parseDurationToMinutes(row[kDuracion]);
+  });
+  return result;
+}
+
+function renderTemplatePreview(tpl) {
+  const el = document.getElementById("templatePreview");
+  el.innerHTML = DIAS.map(dia => {
+    const t = tpl[dia.id];
+    if (!t) {
+      return `<div class="tplday"><h4>Día ${dia.dia} · ${escapeHtml(dia.nombre)}</h4><div class="catempty">No se encontró información para este día en el archivo — se deja la plantilla actual sin cambios.</div></div>`;
+    }
+    return `<div class="tplday">
+      <h4>Día ${dia.dia} · ${escapeHtml(dia.nombre)} — ${t.duracion ? fmtDuration(t.duracion) : "sin duración detectada"}</h4>
+      <div class="field-label-mini">Roles (${t.roles.length})</div>
+      <div class="taglist roles">${t.roles.map(r => `<span>${escapeHtml(r)}</span>`).join("") || "—"}</div>
+      <div class="field-label-mini">Módulos (${t.modulos.length})</div>
+      <div class="taglist">${t.modulos.map(m => `<span>${escapeHtml(m)}</span>`).join("") || "—"}</div>
+    </div>`;
+  }).join("");
+}
+
+document.getElementById("importTemplateBtn").onclick = () => {
+  document.getElementById("templateFile").value = "";
+  document.getElementById("templateStatus").textContent = "";
+  document.getElementById("templatePreview").innerHTML = "";
+  document.getElementById("templateSaveBtn").disabled = true;
+  pendingTemplate = null;
+  templateModal.classList.add("show");
+};
+function closeTemplateModal() { templateModal.classList.remove("show"); }
+document.getElementById("templateCloseTop").onclick = closeTemplateModal;
+document.getElementById("templateCancelBtn").onclick = closeTemplateModal;
+templateModal.onclick = (e) => { if (e.target === templateModal) closeTemplateModal(); };
+
+document.getElementById("templateAnalyzeBtn").onclick = async () => {
+  const file = document.getElementById("templateFile").files[0];
+  const status = document.getElementById("templateStatus");
+  const saveBtn = document.getElementById("templateSaveBtn");
+  if (!file) { status.textContent = "Primero elige un archivo .xlsx o .csv."; return; }
+  status.textContent = "Analizando...";
+  saveBtn.disabled = true;
+  document.getElementById("templatePreview").innerHTML = "";
+  try {
+    pendingTemplate = await parseTemplateWorkbook(file);
+    if (!Object.keys(pendingTemplate).length) throw new Error("No se pudo identificar ningún día en el archivo.");
+    renderTemplatePreview(pendingTemplate);
+    status.textContent = 'Revisa el resultado abajo y dale "Guardar plantilla" si se ve bien.';
+    saveBtn.disabled = false;
+  } catch (err) {
+    console.error("[Agenda MIND] Error leyendo la plantilla:", err);
+    status.textContent = "No se pudo leer el archivo (" + (err?.message || err) + "). Revisa que tenga columnas de Día, Rol(es) Requeridos y Módulos, y que tu conexión a internet esté activa (esta función descarga una librería para leer Excel).";
+  }
+};
+
+document.getElementById("templateSaveBtn").onclick = async () => {
+  if (!pendingTemplate || !Object.keys(pendingTemplate).length) return;
+  Object.entries(pendingTemplate).forEach(([diaId, t]) => { agendaTemplate[diaId] = t; });
+  if (mode === "cloud") await saveTemplateToSupabase(pendingTemplate);
+  document.getElementById("templateStatus").textContent = 'Plantilla guardada — se usará la próxima vez que uses "Asignar semana".';
+  document.getElementById("templateSaveBtn").disabled = true;
+};
 
 /* ============================================================
    ARRANQUE
