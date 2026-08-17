@@ -104,7 +104,6 @@ select.ctrl{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg x
 .taglist{display:flex;flex-wrap:wrap;gap:5px;font-size:12px}
 .taglist span{display:inline-block;background:var(--gray-100);border:1px solid var(--gray-200);padding:2px 8px;border-radius:6px;color:var(--gray-700)}
 .taglist.roles span{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
-.taglist.areas span{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
 .field-label-mini{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-top:2px}
 .card-actions{display:flex;gap:8px;margin-top:auto;padding-top:6px}
 /* ---- vista compacta (dentro del detalle de UDN) ---- */
@@ -112,10 +111,11 @@ select.ctrl{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg x
 .scard.compact-row{flex-direction:row;align-items:center;gap:10px;padding:8px 12px;flex-wrap:nowrap}
 .compact-time{font-size:12px;font-weight:700;color:var(--gray-700);font-variant-numeric:tabular-nums;flex:none;width:92px}
 .compact-badge{font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;border:1px solid;flex:none;white-space:nowrap}
-.compact-name{font-size:13px;font-weight:600;color:var(--ink);flex:1 1 140px;min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compact-name{font-size:13px;font-weight:600;color:var(--ink);flex:0 1 auto;min-width:60px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compact-modulos{font-size:12px;color:var(--gray-500);flex:1 1 160px;min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .compact-spacer{flex:1 1 auto}
 .scard.compact-row .lb-ghost{padding:0 8px}
-@media (max-width:700px){ .scard.compact-row{flex-wrap:wrap} .compact-spacer{display:none} }
+@media (max-width:700px){ .scard.compact-row{flex-wrap:wrap} .compact-spacer{display:none} .compact-modulos{flex-basis:100%;order:10}}
 .empty{text-align:center;color:var(--gray-500);padding:60px 20px;border:1px dashed var(--gray-300);border-radius:12px;background:#fff}
 /* ============ TIMELINE / CRONOGRAMA (Gantt) ============ */
 .g-head-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500)}
@@ -210,6 +210,10 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
 .replrow label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .replrow input[type=date]{width:150px;flex-shrink:0}
 .replrow .replnote{font-size:11px;color:var(--gray-400);flex-shrink:0}
+/* ============ PLANTILLA (IMPORTAR AGENDA) ============ */
+.tplday{border:1px solid var(--gray-200);border-radius:10px;padding:12px 14px;margin-top:10px}
+.tplday h4{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.tplday .field-label-mini{margin-top:8px}
 @media (max-width:760px){ .g.c2,.g.c3{grid-template-columns:1fr} .search input.ctrl{width:160px} .catgrid{grid-template-columns:1fr} }
 </style>
 </head>
@@ -232,6 +236,8 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
       </div>
       <div class="headright">
         <button class="lb lb-md lb-secondary" id="catalogosBtn">Catálogos</button>
+        <button class="lb lb-md lb-secondary" id="importTemplateBtn">Importar agenda</button>
+        <button class="lb lb-md lb-secondary" id="exportHallazgosBtn">Exportar hallazgos</button>
         <button class="lb lb-md lb-secondary" id="exportIcsBtn">Exportar .ics</button>
         <button class="lb lb-md lb-secondary" id="exportCsvBtn">Exportar .csv</button>
         <button class="lb lb-md lb-primary" id="newSessionBtn">+ Nueva sesión</button>
@@ -340,16 +346,6 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
           </div>
         </div>
 
-        <div class="sec">Áreas involucradas <span style="text-transform:none;font-weight:500;color:var(--gray-400)">(opcional)</span></div>
-        <div class="tagpicker">
-          <div class="tagchips" id="areasTags"></div>
-          <div class="tagrow">
-            <input class="ctrl" type="text" id="areasInput" list="areasList" placeholder="Escribe o elige un área y presiona Agregar">
-            <datalist id="areasList"></datalist>
-            <button type="button" class="lb lb-sm lb-secondary" id="addAreaBtn">+ Agregar</button>
-          </div>
-        </div>
-
         <div class="sec">Implementadores <span style="text-transform:none;font-weight:500;color:var(--gray-400)">(quién imparte la sesión)</span></div>
         <div class="tagpicker">
           <div class="tagchips" id="implementadoresTags"></div>
@@ -404,11 +400,6 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
           <h3>Roles <span id="cnt-roles">0</span></h3>
           <div class="catlist" id="list-roles"></div>
           <div class="tagrow"><input class="ctrl" type="text" id="input-roles" placeholder="Nuevo rol"><button type="button" class="lb lb-sm lb-secondary" data-cat="roles">+ Agregar</button></div>
-        </div>
-        <div class="catsec">
-          <h3>Áreas <span id="cnt-areas">0</span></h3>
-          <div class="catlist" id="list-areas"></div>
-          <div class="tagrow"><input class="ctrl" type="text" id="input-areas" placeholder="Nueva área"><button type="button" class="lb lb-sm lb-secondary" data-cat="areas">+ Agregar</button></div>
         </div>
         <div class="catsec">
           <h3>Módulos <span id="cnt-modulos">0</span></h3>
@@ -467,9 +458,12 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
       <input type="hidden" id="week_udn">
       <p style="font-size:12.5px;color:var(--gray-500);margin:0 0 14px">
         Se crean de una vez las 5 sesiones (Día 1 a Día 5) en días hábiles
-        consecutivos, con estos mismos datos generales. Después, desde el
-        detalle de la UDN, puedes afinar cada día (roles, módulos,
-        implementadores, etc.) sin tener que volver a capturar lo de aquí.
+        consecutivos. Los roles, módulos y duración de cada día se toman de
+        tu plantilla de agenda (botón <b>"Importar agenda"</b> en la
+        pantalla principal); la Duración de aquí abajo solo se usa como
+        respaldo para los días sin plantilla. Después, desde el detalle de
+        la UDN, puedes afinar cada día sin tener que volver a capturar lo
+        de aquí.
       </p>
       <div class="g c2">
         <div class="field">
@@ -538,6 +532,68 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
     <div class="modal-foot">
       <button type="button" class="lb lb-md lb-secondary" id="replicateCancelBtn">Cancelar</button>
       <button type="button" class="lb lb-md lb-primary" id="replicateSaveBtn">Replicar a seleccionadas</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: IMPORTAR AGENDA (PLANTILLA POR DÍA) ============ -->
+<div class="overlay" id="templateModal">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h2>Importar agenda (plantilla por día)</h2>
+      <button type="button" class="modal-close" id="templateCloseTop" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" style="padding-bottom:6px">
+      <p style="font-size:12.5px;color:var(--gray-500);margin:0 0 12px">
+        Sube tu agenda general en Excel (.xlsx) o CSV con columnas como
+        <b>Día, Fase, Objetivo, Rol(es) Requeridos, Módulos, Duración</b> (una
+        fila por bloque; si tu archivo viene de celdas combinadas, deja vacía
+        la columna Día en las filas que siguen al mismo día — se completa
+        automáticamente). Por cada día se juntan todos los roles y módulos
+        que aparezcan, y se suman las duraciones. Esto se usa como plantilla
+        para <b>"Asignar semana"</b>: en vez de crear las 5 sesiones vacías,
+        se crean ya con roles, módulos y duración por día. No soportamos
+        subir el PDF directamente — expórtalo a Excel/CSV primero, es mucho
+        más confiable de leer.
+      </p>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+        <input type="file" id="templateFile" accept=".xlsx,.xls,.csv">
+        <button type="button" class="lb lb-sm lb-secondary" id="templateAnalyzeBtn">Analizar archivo</button>
+      </div>
+      <div id="templateStatus" class="hint" style="color:var(--gray-500)"></div>
+      <div id="templatePreview"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="lb lb-md lb-secondary" id="templateCancelBtn">Cerrar</button>
+      <button type="button" class="lb lb-md lb-primary" id="templateSaveBtn" disabled>Guardar plantilla</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: EXPORTAR HALLAZGOS ============ -->
+<div class="overlay" id="hallazgosExportModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h2>Exportar hallazgos</h2>
+      <button type="button" class="modal-close" id="hallazgosExportCloseTop" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" style="padding-bottom:6px">
+      <p style="font-size:12.5px;color:var(--gray-500);margin:0 0 12px">
+        Elige de qué UDN quieres descargar los hallazgos registrados (o deja
+        todas marcadas para exportarlos todos). Se descarga un .csv con UDN,
+        día, fecha de la sesión, fecha del hallazgo y el texto.
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input class="ctrl" type="text" id="hallazgosExportSearch" placeholder="Buscar UDN...">
+        <button type="button" class="lb lb-sm lb-secondary" id="hallazgosExportSelectAllBtn" style="white-space:nowrap">Marcar todas</button>
+        <button type="button" class="lb lb-sm lb-ghost" id="hallazgosExportClearAllBtn" style="white-space:nowrap">Quitar todas</button>
+      </div>
+      <div class="repllist" id="hallazgosExportList"></div>
+      <div id="hallazgosExportNote" class="hint" style="color:var(--gray-500)"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="lb lb-md lb-secondary" id="hallazgosExportCancelBtn">Cancelar</button>
+      <button type="button" class="lb lb-md lb-primary" id="hallazgosExportSaveBtn">Descargar .csv</button>
     </div>
   </div>
 </div>
