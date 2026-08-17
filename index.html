@@ -202,13 +202,20 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
 .catitem button{border:0;background:transparent;color:var(--gray-400);width:22px;height:22px;border-radius:5px;display:grid;place-items:center}
 .catitem button:hover{background:#fecaca;color:var(--red-600)}
 .catempty{font-size:12.5px;color:var(--gray-400);padding:8px 0;text-align:center}
+/* ============ REPLICAR AGENDA ============ */
+.repllist{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.replrow{display:flex;align-items:center;gap:10px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:7px;padding:7px 10px}
+.replrow.checked{background:#eef2ff;border-color:#c7d2fe}
+.replrow label{flex:1;font-size:13px;color:var(--gray-800);display:flex;align-items:center;gap:8px;cursor:pointer;overflow:hidden}
+.replrow label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.replrow input[type=date]{width:150px;flex-shrink:0}
+.replrow .replnote{font-size:11px;color:var(--gray-400);flex-shrink:0}
 @media (max-width:760px){ .g.c2,.g.c3{grid-template-columns:1fr} .search input.ctrl{width:160px} .catgrid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
-    <span class="brand-ico">🧭</span>
     <div class="brand-word">AGENDA DE IMPLEMENTACIÓN MIND</div>
   </div>
   <div class="topright">
@@ -299,8 +306,8 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
           <div class="field">
             <label>Modalidad</label>
             <div class="modseg" id="modSeg">
-              <button type="button" class="active" data-mod="Virtual (Teams)">💻 Virtual (Teams)</button>
-              <button type="button" data-mod="Presencial">🏢 Presencial</button>
+              <button type="button" class="active" data-mod="Virtual (Teams)">Virtual (Teams)</button>
+              <button type="button" data-mod="Presencial">Presencial</button>
             </div>
           </div>
           <div class="field">
@@ -445,6 +452,92 @@ footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;pa
     <div class="modal-foot">
       <button type="button" class="lb lb-md lb-secondary" id="rangeCancelBtn">Cancelar</button>
       <button type="button" class="lb lb-md lb-primary" id="rangeSaveBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: ASIGNAR SEMANA DE IMPLEMENTACIÓN ============ -->
+<div class="overlay" id="weekModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <h2 id="weekModalTitle">Asignar semana de implementación</h2>
+      <button type="button" class="modal-close" id="weekCloseTop" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" style="padding-bottom:6px">
+      <input type="hidden" id="week_udn">
+      <p style="font-size:12.5px;color:var(--gray-500);margin:0 0 14px">
+        Se crean de una vez las 5 sesiones (Día 1 a Día 5) en días hábiles
+        consecutivos, con estos mismos datos generales. Después, desde el
+        detalle de la UDN, puedes afinar cada día (roles, módulos,
+        implementadores, etc.) sin tener que volver a capturar lo de aquí.
+      </p>
+      <div class="g c2">
+        <div class="field">
+          <label>Fecha de inicio (Día 1)</label>
+          <input class="ctrl" type="date" id="week_start" required>
+        </div>
+        <div class="field">
+          <label>Fase general</label>
+          <select class="ctrl" id="week_fase" required>
+            <option value="">Seleccionar fase...</option>
+            <option value="Fase 1">Fase 1</option>
+            <option value="Fase 2">Fase 2</option>
+            <option value="Fase 3">Fase 3</option>
+          </select>
+        </div>
+      </div>
+      <div id="weekPreview" class="hint" style="color:var(--gray-500)"></div>
+      <div class="g c3" style="margin-top:14px">
+        <div class="field">
+          <label>Hora de inicio (diaria)</label>
+          <input class="ctrl" type="time" id="week_start_time" value="09:00" required>
+        </div>
+        <div class="field">
+          <label>Duración (min)</label>
+          <input class="ctrl" type="number" id="week_duration" min="15" step="15" value="90" required>
+        </div>
+        <div class="field">
+          <label>Modalidad</label>
+          <div class="modseg" id="weekModSeg">
+            <button type="button" class="active" data-mod="Virtual (Teams)">Virtual</button>
+            <button type="button" data-mod="Presencial">Presencial</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label id="weekLugarLabel">Link de Teams <span style="font-weight:400;color:var(--gray-400)">(opcional)</span></label>
+        <input class="ctrl" type="text" id="week_lugar" placeholder="https://teams.microsoft.com/...">
+      </div>
+      <div id="weekSkipNote" class="hint" style="color:var(--gray-500)"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="lb lb-md lb-secondary" id="weekCancelBtn">Cancelar</button>
+      <button type="button" class="lb lb-md lb-primary" id="weekSaveBtn">Crear semana</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: REPLICAR AGENDA A OTRAS UDN ============ -->
+<div class="overlay" id="replicateModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h2 id="replicateModalTitle">Replicar agenda a otras UDN</h2>
+      <button type="button" class="modal-close" id="replicateCloseTop" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" style="padding-bottom:6px">
+      <input type="hidden" id="replicate_source_udn">
+      <p id="replicateExplain" style="font-size:12.5px;color:var(--gray-500);margin:0 0 12px"></p>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input class="ctrl" type="text" id="replicateSearch" placeholder="Buscar UDN...">
+        <button type="button" class="lb lb-sm lb-secondary" id="replicateSelectAllBtn" style="white-space:nowrap">Marcar todas</button>
+        <button type="button" class="lb lb-sm lb-ghost" id="replicateClearAllBtn" style="white-space:nowrap">Quitar todas</button>
+      </div>
+      <div class="repllist" id="replicateList"></div>
+      <div id="replicateResultNote" class="hint" style="color:var(--gray-500)"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="lb lb-md lb-secondary" id="replicateCancelBtn">Cancelar</button>
+      <button type="button" class="lb lb-md lb-primary" id="replicateSaveBtn">Replicar a seleccionadas</button>
     </div>
   </div>
 </div>
