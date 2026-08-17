@@ -462,7 +462,7 @@ function renderTimelineMain(list, content) {
     bar.onclick = (e) => { e.stopPropagation(); openRangeModal(bar.dataset.udn); };
   });
   content.querySelectorAll(".tl-plus[data-udn]").forEach(btn => {
-    btn.onclick = (e) => { e.stopPropagation(); openModal(null, { udn: btn.dataset.udn }); };
+    btn.onclick = (e) => { e.stopPropagation(); openWeekModal(btn.dataset.udn); };
   });
 }
 
@@ -472,18 +472,21 @@ let udnCompactView = false;
 function renderUdnDetail(content) {
   const udn = drill.udn;
   const scoped = sessions.filter(s => s.udn === udn && sessionMatchesFilters(s, { ignoreUdn: true }));
+  const hasAgenda = sessions.some(s => s.udn === udn);
 
   let html = `<div class="breadcrumb">
     <button type="button" class="lb lb-sm lb-ghost" id="bcTimeline">← Cronograma</button><span class="bc-sep">/</span>
     <b>${escapeHtml(udn)}</b>
   </div>`;
   html += `<div class="dayhead">
-    <div style="font-size:13px;color:var(--gray-500)">${scoped.length} sesión${scoped.length === 1 ? "" : "es"} programada${scoped.length === 1 ? "" : "s"}</div>
+    <div style="font-size:13px;color:var(--gray-500)">${scoped.length} ${scoped.length === 1 ? "sesión" : "sesiones"} programada${scoped.length === 1 ? "" : "s"}</div>
     <div style="display:flex;align-items:center;gap:10px">
       <div class="seg" id="udnViewSeg">
         <button type="button" class="segbtn${udnCompactView ? "" : " active"}" data-compact="0">Vista completa</button>
         <button type="button" class="segbtn${udnCompactView ? " active" : ""}" data-compact="1">Vista compacta</button>
       </div>
+      ${hasAgenda ? `<button type="button" class="lb lb-sm lb-secondary" id="replicateAgendaBtn">Replicar a otras UDN</button>` : ""}
+      <button type="button" class="lb lb-sm lb-secondary" id="assignWeekUdnBtn">Asignar semana</button>
       <button type="button" class="lb lb-sm lb-primary" id="addSessionUdnBtn">+ Nueva sesión</button>
     </div>
   </div>`;
@@ -507,6 +510,9 @@ function renderUdnDetail(content) {
   content.innerHTML = html;
   document.getElementById("bcTimeline").onclick = () => { resetDrill(); renderAll(); };
   document.getElementById("addSessionUdnBtn").onclick = () => openModal(null, { udn });
+  document.getElementById("assignWeekUdnBtn").onclick = () => openWeekModal(udn);
+  const replicateBtn = document.getElementById("replicateAgendaBtn");
+  if (replicateBtn) replicateBtn.onclick = () => openReplicateModal(udn);
   document.querySelectorAll("#udnViewSeg button[data-compact]").forEach(btn => {
     btn.onclick = () => { udnCompactView = btn.dataset.compact === "1"; renderAll(); };
   });
@@ -554,23 +560,275 @@ async function applyUdnRange(udn, newStart, newEnd) {
   }
 }
 
+/* ---------- Modal: asignar semana de implementación (crea las 5 sesiones de un jalón) ---------- */
+const weekModal = document.getElementById("weekModal");
+let weekModalidad = "Virtual (Teams)";
+
+function setWeekModalidad(value) {
+  weekModalidad = value;
+  document.querySelectorAll("#weekModSeg button").forEach(b => b.classList.toggle("active", b.dataset.mod === value));
+  const presencial = value === "Presencial";
+  document.getElementById("weekLugarLabel").innerHTML = presencial
+    ? "Sala"
+    : `Link de Teams <span style="font-weight:400;color:var(--gray-400)">(opcional)</span>`;
+  document.getElementById("week_lugar").placeholder = presencial ? "Ej. Sala de capacitación 1" : "https://teams.microsoft.com/...";
+}
+document.querySelectorAll("#weekModSeg button").forEach(btn => btn.addEventListener("click", () => setWeekModalidad(btn.dataset.mod)));
+
+// Avanza una fecha al siguiente día hábil (lunes a viernes), sin tocarla si ya lo es.
+function nextWeekday(d) {
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d;
+}
+// Calcula `count` fechas en días hábiles consecutivos a partir de startDateStr (inclusive).
+function computeWeekdayDates(startDateStr, count) {
+  const dates = [];
+  let d = nextWeekday(new Date(startDateStr + "T00:00:00"));
+  for (let i = 0; i < count; i++) {
+    dates.push(d.toISOString().slice(0, 10));
+    d = nextWeekday(new Date(d.getTime() + 24 * 60 * 60 * 1000));
+  }
+  return dates;
+}
+
+function updateWeekPreview() {
+  const startVal = document.getElementById("week_start").value;
+  const preview = document.getElementById("weekPreview");
+  if (!startVal) { preview.textContent = ""; return; }
+  const dates = computeWeekdayDates(startVal, DIAS.length);
+  preview.textContent = `Se programarán del ${fmtDateShort(dates[0])} al ${fmtDateShort(dates[dates.length - 1])} (Día 1 a Día ${DIAS.length}, en días hábiles consecutivos).`;
+}
+document.getElementById("week_start").addEventListener("input", updateWeekPreview);
+
+function updateWeekSkipNote(udn) {
+  const note = document.getElementById("weekSkipNote");
+  const existentes = DIAS.filter(dia => sessions.some(s => s.udn === udn && s.diaId === dia.id));
+  note.textContent = existentes.length
+    ? `Ya existe sesión para: ${existentes.map(d => "Día " + d.dia).join(", ")} — esas no se van a duplicar, solo se crean los días que falten.`
+    : "";
+}
+
+function openWeekModal(udn) {
+  document.getElementById("weekModalTitle").textContent = `Asignar semana de implementación — ${udn}`;
+  document.getElementById("week_udn").value = udn;
+  document.getElementById("week_start").value = "";
+  document.getElementById("week_fase").value = "";
+  document.getElementById("week_start_time").value = "09:00";
+  document.getElementById("week_duration").value = 90;
+  document.getElementById("week_lugar").value = "";
+  setWeekModalidad("Virtual (Teams)");
+  updateWeekPreview();
+  updateWeekSkipNote(udn);
+  weekModal.classList.add("show");
+}
+function closeWeekModal() { weekModal.classList.remove("show"); }
+document.getElementById("weekCloseTop").onclick = closeWeekModal;
+document.getElementById("weekCancelBtn").onclick = closeWeekModal;
+weekModal.onclick = (e) => { if (e.target === weekModal) closeWeekModal(); };
+
+async function createWeekForUdn(udn, opts) {
+  const { startDate, fase, modalidad, lugar, startTime, duration } = opts;
+  const dates = computeWeekdayDates(startDate, DIAS.length);
+  const existingDiaIds = new Set(sessions.filter(s => s.udn === udn).map(s => s.diaId));
+  for (let i = 0; i < DIAS.length; i++) {
+    const dia = DIAS[i];
+    if (existingDiaIds.has(dia.id)) continue; // no duplicar días ya programados
+    await saveSession({
+      udn,
+      fase,
+      diaId: dia.id,
+      date: dates[i],
+      start: startTime,
+      duration: Number(duration),
+      modalidad,
+      lugar: lugar || "",
+      objetivo: dia.objetivo,
+      notas: "",
+      modulos: [],
+      roles: [],
+      areas: [],
+      implementadores: [],
+      hallazgos: [],
+    });
+  }
+}
+
+document.getElementById("weekSaveBtn").onclick = async () => {
+  const udn = document.getElementById("week_udn").value;
+  const startDate = document.getElementById("week_start").value;
+  const fase = document.getElementById("week_fase").value;
+  const startTime = document.getElementById("week_start_time").value;
+  const duration = document.getElementById("week_duration").value;
+  const lugar = document.getElementById("week_lugar").value.trim();
+  if (!udn || !startDate || !fase) {
+    alert("Completa la fecha de inicio y la fase general antes de crear la semana.");
+    return;
+  }
+  await createWeekForUdn(udn, { startDate, fase, modalidad: weekModalidad, lugar, startTime, duration });
+  closeWeekModal();
+  drill = { level: "udn", udn, diaId: null, date: null };
+  renderAll();
+};
+
+/* ---------- Modal: replicar la agenda de una UDN a otras (misma estructura, cada una con su propia fecha) ---------- */
+const replicateModal = document.getElementById("replicateModal");
+let replicateSelections = {}; // { "UDN destino": "YYYY-MM-DD" | "" }
+
+function getUdnAgenda(udn) {
+  return sessions.filter(s => s.udn === udn).slice().sort((a, b) => {
+    const da = diaById(a.diaId)?.dia ?? 999, db = diaById(b.diaId)?.dia ?? 999;
+    if (da !== db) return da - db;
+    return (a.date || "").localeCompare(b.date || "");
+  });
+}
+
+function getReplicateTargets(sourceUdn, filterText) {
+  const q = (filterText || "").trim().toLowerCase();
+  return catalogs.udn.filter(u => u !== sourceUdn && (!q || u.toLowerCase().includes(q)));
+}
+
+function renderReplicateList(sourceUdn, filterText) {
+  const list = document.getElementById("replicateList");
+  const targets = getReplicateTargets(sourceUdn, filterText);
+  if (!targets.length) {
+    list.innerHTML = `<div class="catempty">No hay otras UDN que coincidan.</div>`;
+    return;
+  }
+  list.innerHTML = targets.map(u => {
+    const checked = Object.prototype.hasOwnProperty.call(replicateSelections, u);
+    const dateVal = replicateSelections[u] || "";
+    return `<div class="replrow${checked ? " checked" : ""}" data-udn="${escapeHtml(u)}">
+      <label>
+        <input type="checkbox" class="repl-check" ${checked ? "checked" : ""}>
+        <span title="${escapeHtml(u)}">${escapeHtml(u)}</span>
+      </label>
+      <input type="date" class="repl-date" value="${dateVal}" ${checked ? "" : "disabled"}>
+    </div>`;
+  }).join("");
+  list.querySelectorAll(".replrow").forEach(row => {
+    const u = row.dataset.udn;
+    const chk = row.querySelector(".repl-check");
+    const dateInput = row.querySelector(".repl-date");
+    chk.onchange = () => {
+      row.classList.toggle("checked", chk.checked);
+      dateInput.disabled = !chk.checked;
+      if (chk.checked) { replicateSelections[u] = dateInput.value || ""; dateInput.focus(); }
+      else { delete replicateSelections[u]; }
+    };
+    dateInput.onchange = () => { if (chk.checked) replicateSelections[u] = dateInput.value; };
+  });
+}
+document.getElementById("replicateSearch").addEventListener("input", (e) => {
+  renderReplicateList(document.getElementById("replicate_source_udn").value, e.target.value);
+});
+document.getElementById("replicateSelectAllBtn").onclick = () => {
+  const sourceUdn = document.getElementById("replicate_source_udn").value;
+  getReplicateTargets(sourceUdn, document.getElementById("replicateSearch").value).forEach(u => {
+    if (!(u in replicateSelections)) replicateSelections[u] = "";
+  });
+  renderReplicateList(sourceUdn, document.getElementById("replicateSearch").value);
+};
+document.getElementById("replicateClearAllBtn").onclick = () => {
+  replicateSelections = {};
+  renderReplicateList(document.getElementById("replicate_source_udn").value, document.getElementById("replicateSearch").value);
+};
+
+function openReplicateModal(sourceUdn) {
+  const agenda = getUdnAgenda(sourceUdn);
+  if (!agenda.length) return;
+  replicateSelections = {};
+  document.getElementById("replicate_source_udn").value = sourceUdn;
+  document.getElementById("replicateModalTitle").textContent = `Replicar agenda de ${sourceUdn}`;
+  const diasTxt = agenda.map(s => "Día " + (diaById(s.diaId)?.dia ?? "?")).join(", ");
+  document.getElementById("replicateExplain").textContent =
+    `Se copian las mismas ${agenda.length} ${agenda.length === 1 ? "sesión" : "sesiones"} (${diasTxt}) — fase, modalidad, objetivo, módulos, roles, áreas e implementadores — a cada UDN que marques abajo. Cada una usa su propia fecha de inicio (Día 1); los demás días se acomodan en los siguientes días hábiles, igual que "Asignar semana". No se copian fechas ni hallazgos.`;
+  document.getElementById("replicateSearch").value = "";
+  document.getElementById("replicateResultNote").textContent = "";
+  const saveBtn = document.getElementById("replicateSaveBtn");
+  saveBtn.disabled = false;
+  saveBtn.textContent = "Replicar a seleccionadas";
+  document.getElementById("replicateCancelBtn").textContent = "Cancelar";
+  renderReplicateList(sourceUdn, "");
+  replicateModal.classList.add("show");
+}
+function closeReplicateModal() { replicateModal.classList.remove("show"); }
+document.getElementById("replicateCloseTop").onclick = closeReplicateModal;
+document.getElementById("replicateCancelBtn").onclick = closeReplicateModal;
+replicateModal.onclick = (e) => { if (e.target === replicateModal) closeReplicateModal(); };
+
+async function replicateAgendaToUdn(sourceAgenda, targetUdn, startDate) {
+  const dates = computeWeekdayDates(startDate, sourceAgenda.length);
+  const existingDiaIds = new Set(sessions.filter(s => s.udn === targetUdn).map(s => s.diaId));
+  let created = 0;
+  const skipped = [];
+  for (let i = 0; i < sourceAgenda.length; i++) {
+    const src = sourceAgenda[i];
+    if (existingDiaIds.has(src.diaId)) { skipped.push(diaById(src.diaId)?.dia ?? "?"); continue; } // no duplicar días ya programados en el destino
+    await saveSession({
+      udn: targetUdn,
+      fase: src.fase,
+      diaId: src.diaId,
+      date: dates[i],
+      start: src.start,
+      duration: src.duration,
+      modalidad: src.modalidad,
+      lugar: src.lugar || "",
+      objetivo: src.objetivo,
+      notas: "",
+      modulos: [...(src.modulos || [])],
+      roles: [...(src.roles || [])],
+      areas: [...(src.areas || [])],
+      implementadores: [...(src.implementadores || [])],
+      hallazgos: [], // los hallazgos son de cada sesión real; no tiene sentido copiarlos
+    });
+    created++;
+  }
+  return { created, skipped };
+}
+
+document.getElementById("replicateSaveBtn").onclick = async () => {
+  const sourceUdn = document.getElementById("replicate_source_udn").value;
+  const agenda = getUdnAgenda(sourceUdn);
+  const withDate = Object.entries(replicateSelections).filter(([, date]) => date);
+  const withoutDate = Object.entries(replicateSelections).filter(([, date]) => !date);
+  if (!withDate.length) {
+    alert(withoutDate.length
+      ? "Ponle una fecha de inicio a cada UDN que marcaste."
+      : "Marca al menos una UDN para replicar la agenda.");
+    return;
+  }
+  const saveBtn = document.getElementById("replicateSaveBtn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Replicando...";
+  const results = [];
+  for (const [targetUdn, startDate] of withDate) {
+    const { created, skipped } = await replicateAgendaToUdn(agenda, targetUdn, startDate);
+    const skipTxt = skipped.length ? ` (Día ${skipped.join(", ")} ya existía${skipped.length === 1 ? "" : "n"}, no se duplicó)` : "";
+    results.push(`${targetUdn}: ${created} ${created === 1 ? "sesión creada" : "sesiones creadas"}${skipTxt}`);
+  }
+  document.getElementById("replicateResultNote").innerHTML = results.map(r => escapeHtml(r)).join("<br>");
+  saveBtn.textContent = "Listo";
+  document.getElementById("replicateCancelBtn").textContent = "Cerrar";
+  replicateSelections = {};
+  renderAll();
+};
+
 function sessionCardHtml(s) {
   const dia = diaById(s.diaId) || { nombre: "Sin día", dia: "", color: "#737373", bg: "#f5f5f5", border: "#e5e5e5" };
   const conflicts = findConflicts(s);
   const endLabel = minutesToLabel(timeToMinutes(s.start) + Number(s.duration));
   const modClass = s.modalidad === "Presencial" ? "presencial" : "virtual";
-  const modIcon = s.modalidad === "Presencial" ? "🏢" : "💻";
   const barColor = s.modalidad === "Presencial" ? "#0e7490" : "#5b5fc7";
   return `
     <div class="scard" data-id="${s.id}" style="border-left-color:${barColor}">
-      ${conflicts.length ? `<div class="tchip" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626;align-self:flex-start">⚠️ Choque de sala con otra sesión</div>` : ""}
+      ${conflicts.length ? `<div class="tchip" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626;align-self:flex-start">Choque de sala con otra sesión</div>` : ""}
       <div class="time">${s.start}–${endLabel} · ${fmtDuration(s.duration)}</div>
       <h3>${escapeHtml(dia.nombre)}</h3>
       <div class="badges">
-        <span class="tchip t-udn">🏷️ ${escapeHtml(s.udn)}</span>
+        <span class="tchip t-udn">${escapeHtml(s.udn)}</span>
         ${s.fase ? `<span class="tchip" style="background:var(--gray-100);border-color:var(--gray-200);color:var(--gray-700)">${escapeHtml(s.fase)}</span>` : ""}
         <span class="tchip" style="background:${dia.bg};border-color:${dia.border};color:${dia.color}">Día ${dia.dia || ""}</span>
-        <span class="tchip t-modal ${modClass}">${modIcon} ${escapeHtml(s.modalidad)}</span>
+        <span class="tchip t-modal ${modClass}">${escapeHtml(s.modalidad)}</span>
       </div>
       ${s.lugar ? `<div class="field-label-mini">${s.modalidad === "Presencial" ? "Sala" : "Link"}</div><div style="font-size:12.5px;color:var(--gray-700);word-break:break-all">${escapeHtml(s.lugar)}</div>` : ""}
       ${s.objetivo ? `<div style="font-size:12.5px;color:var(--gray-600)">${escapeHtml(s.objetivo)}</div>` : ""}
@@ -578,7 +836,7 @@ function sessionCardHtml(s) {
       ${(s.roles || []).length ? `<div><div class="field-label-mini">Roles</div><div class="taglist roles">${s.roles.map(r => `<span>${escapeHtml(r)}</span>`).join("")}</div></div>` : ""}
       ${(s.areas || []).length ? `<div><div class="field-label-mini">Áreas</div><div class="taglist areas">${s.areas.map(a => `<span>${escapeHtml(a)}</span>`).join("")}</div></div>` : ""}
       ${(s.implementadores || []).length ? `<div><div class="field-label-mini">Implementador(es)</div><div class="taglist impl">${s.implementadores.map(i => `<span>${escapeHtml(i)}</span>`).join("")}</div></div>` : ""}
-      ${(s.hallazgos || []).length ? `<div class="tchip" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;align-self:flex-start">📝 ${s.hallazgos.length} hallazgo${s.hallazgos.length > 1 ? "s" : ""}</div>` : ""}
+      ${(s.hallazgos || []).length ? `<div class="tchip" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;align-self:flex-start">${s.hallazgos.length} hallazgo${s.hallazgos.length > 1 ? "s" : ""}</div>` : ""}
       <div class="card-actions">
         <button class="lb lb-sm lb-secondary edit-btn">Editar</button>
         <button class="lb lb-sm lb-quitar delete-btn">Eliminar</button>
@@ -591,7 +849,6 @@ function sessionCompactRowHtml(s) {
   const conflicts = findConflicts(s);
   const endLabel = minutesToLabel(timeToMinutes(s.start) + Number(s.duration));
   const modClass = s.modalidad === "Presencial" ? "presencial" : "virtual";
-  const modIcon = s.modalidad === "Presencial" ? "🏢" : "💻";
   const barColor = s.modalidad === "Presencial" ? "#0e7490" : "#5b5fc7";
   return `
     <div class="scard compact-row" data-id="${s.id}" style="border-left-color:${barColor}">
@@ -599,11 +856,11 @@ function sessionCompactRowHtml(s) {
       <span class="compact-badge" style="background:${dia.bg};border-color:${dia.border};color:${dia.color}">Día ${dia.dia || ""}</span>
       <span class="compact-name" title="${escapeHtml(dia.nombre)}">${escapeHtml(dia.nombre)}</span>
       ${s.fase ? `<span class="tchip" style="background:var(--gray-100);border-color:var(--gray-200);color:var(--gray-700)">${escapeHtml(s.fase)}</span>` : ""}
-      <span class="tchip t-modal ${modClass}">${modIcon} ${escapeHtml(s.modalidad)}</span>
-      ${conflicts.length ? `<span title="Choque de sala con otra sesión">⚠️</span>` : ""}
+      <span class="tchip t-modal ${modClass}">${escapeHtml(s.modalidad)}</span>
+      ${conflicts.length ? `<span class="tchip" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626" title="Choque de sala con otra sesión">Choque</span>` : ""}
       <span class="compact-spacer"></span>
-      <button class="lb lb-sm lb-ghost edit-btn" title="Editar" aria-label="Editar">✎</button>
-      <button class="lb lb-sm lb-ghost delete-btn" title="Eliminar" aria-label="Eliminar" style="color:var(--red-600)">✕</button>
+      <button class="lb lb-sm lb-ghost edit-btn" title="Editar" aria-label="Editar">Editar</button>
+      <button class="lb lb-sm lb-ghost delete-btn" title="Eliminar" aria-label="Eliminar" style="color:var(--red-600)">Eliminar</button>
     </div>`;
 }
 
@@ -774,7 +1031,7 @@ function checkConflictPreview() {
   const warn = document.getElementById("conflictWarning");
   if (currentModalidad !== "Presencial" || !draft.date || !draft.start || !draft.lugar) { warn.textContent = ""; return; }
   const conflicts = findConflicts(draft);
-  warn.textContent = conflicts.length ? `⚠️ Esa sala ya está ocupada en ese horario (otra sesión el mismo día).` : "";
+  warn.textContent = conflicts.length ? `Esa sala ya está ocupada en ese horario (otra sesión el mismo día).` : "";
 }
 
 form.addEventListener("submit", async (e) => {
