@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agenda de implementación MIND</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --lipu-500:#A3B500;
+  --lipu-600:#D0DF00;
+  --lima:#D0DF00;
+  --lima-hover:#c2d000;
+  --red-500:#ef4444;
+  --red-600:#dc2626;
+  --ink:#111827;
+  --gray-900:#1a1a1a;
+  --gray-700:#404040;
+  --gray-600:#525252;
+  --gray-500:#737373;
+  --gray-400:#a3a3a3;
+  --gray-300:#d4d4d4;
+  --gray-200:#e5e5e5;
+  --gray-100:#f5f5f5;
+  --gray-50:#fafafa;
+  --surface:#ffffff;
+  --canvas:#f4f5f7;
+  --border:#e6e6e6;
+  --focus:#3b82f6;
+  --focus-ring:rgba(59,130,246,.25);
+  --radius:8px;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);color:var(--gray-900);background:var(--canvas);-webkit-font-smoothing:antialiased;font-size:14px}
+button{font-family:inherit;cursor:pointer}
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px 60px}
+/* ============ TOPBAR ============ */
+.topbar{
+  height:64px;display:flex;align-items:center;gap:14px;padding:0 26px;background:#fff;
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:40;
+}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-ico{font-size:22px;line-height:1}
+.brand-word{font-weight:700;font-size:17px;letter-spacing:.01em;color:var(--gray-900);line-height:1.15}
+.brand-sub{font-size:10.5px;color:var(--gray-500);margin-top:2px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.topright{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#connBadge{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--gray-700);border:1px solid var(--gray-200);padding:6px 12px;border-radius:999px;background:#fff}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--gray-400)}
+.dot.live{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+/* ============ PAGEHEAD ============ */
+.pagehead{background:#fff;margin:0 -26px 24px;padding:22px 26px;border-bottom:1px solid var(--border)}
+.pagehead-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:24px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.pagehead p{margin-top:4px;color:var(--gray-500);font-size:13.5px}
+.headright{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* ============ BUTTONS ============ */
+.lb{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border-radius:8px;font-weight:500;transition:background-color .15s,color .15s,border-color .15s;
+    box-shadow:0 1px 2px 0 rgba(0,0,0,.05);border:1px solid transparent;font-family:inherit;white-space:nowrap}
+.lb-sm{height:34px;padding:0 14px;font-size:13.5px}
+.lb-md{height:38px;padding:0 16px;font-size:14px}
+.lb-primary{background:var(--lipu-600);color:var(--ink)}
+.lb-primary:hover{background:var(--lima-hover)}
+.lb-secondary{background:#fff;color:var(--gray-700);border-color:var(--gray-300)}
+.lb-secondary:hover{background:var(--gray-50)}
+.lb-danger{background:var(--red-600);color:#fff}
+.lb-danger:hover{background:#b91c1c}
+.lb-quitar{background:#fff;border-color:#fca5a5;color:var(--red-600);box-shadow:none}
+.lb-quitar:hover{background:#fef2f2;border-color:var(--red-600)}
+.lb-ghost{background:transparent;border:0;box-shadow:none;color:var(--gray-600);padding:0 10px}
+.lb-ghost:hover{background:var(--gray-100);color:var(--ink)}
+.lb:focus-visible{outline:2px solid var(--lipu-600);outline-offset:2px}
+.lb:disabled{cursor:not-allowed;opacity:.5}
+/* ============ TOOLBAR / CHIPS / SEARCH ============ */
+.card{border:1px solid var(--border);border-radius:12px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.toolbar{display:flex;align-items:center;gap:10px;padding:16px 18px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:#fff;border-radius:12px 12px 0 0}
+.ctrl{height:38px;border:1px solid var(--gray-300);border-radius:8px;padding:0 12px;font-size:13.5px;font-family:inherit;color:var(--ink);background:#fff;outline:none}
+select.ctrl{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23525252' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+.ctrl:focus{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-ring)}
+.search{position:relative;display:flex;align-items:center}
+.search svg{position:absolute;left:12px;width:14px;height:14px;fill:var(--gray-400)}
+.search input.ctrl{height:38px;width:220px;padding:0 12px 0 34px}
+.seg{display:inline-flex;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:9px;padding:3px;gap:3px}
+.segbtn{height:32px;padding:0 15px;border-radius:7px;font-size:13.5px;font-weight:600;color:var(--gray-600);border:0;background:transparent}
+.segbtn:hover{color:var(--ink)}
+.segbtn.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+/* ============ CONTENT ============ */
+.contentwrap{padding-top:2px}
+.day-group{margin-bottom:26px}
+.day-title{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gray-500);margin:0 0 12px;display:flex;align-items:center;gap:10px}
+.day-title .line{flex:1;height:1px;background:var(--border)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+.scard{background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:9px;box-shadow:0 1px 2px rgba(16,24,40,.04);border-left:4px solid var(--lipu-600)}
+.scard .time{font-size:12.5px;color:var(--gray-600);font-weight:700;font-variant-numeric:tabular-nums}
+.scard h3{margin:0;font-size:15px;font-weight:700;color:var(--ink);line-height:1.3}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.tchip{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:3px 9px;font-size:11.5px;font-weight:600;border:1px solid;white-space:nowrap}
+.t-udn{background:#f5f3ff;color:#5b21b6;border-color:#ddd6fe}
+.t-modal{background:var(--gray-100);color:var(--gray-700);border-color:var(--gray-200)}
+.taglist{display:flex;flex-wrap:wrap;gap:5px;font-size:12px}
+.taglist span{display:inline-block;background:var(--gray-100);border:1px solid var(--gray-200);padding:2px 8px;border-radius:6px;color:var(--gray-700)}
+.taglist.roles span{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+.taglist.areas span{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+.field-label-mini{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-top:2px}
+.card-actions{display:flex;gap:8px;margin-top:auto;padding-top:6px}
+/* ---- vista compacta (dentro del detalle de UDN) ---- */
+.cards.compact-list{display:flex;flex-direction:column;gap:6px}
+.scard.compact-row{flex-direction:row;align-items:center;gap:10px;padding:8px 12px;flex-wrap:nowrap}
+.compact-time{font-size:12px;font-weight:700;color:var(--gray-700);font-variant-numeric:tabular-nums;flex:none;width:92px}
+.compact-badge{font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;border:1px solid;flex:none;white-space:nowrap}
+.compact-name{font-size:13px;font-weight:600;color:var(--ink);flex:1 1 140px;min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compact-spacer{flex:1 1 auto}
+.scard.compact-row .lb-ghost{padding:0 8px}
+@media (max-width:700px){ .scard.compact-row{flex-wrap:wrap} .compact-spacer{display:none} }
+.empty{text-align:center;color:var(--gray-500);padding:60px 20px;border:1px dashed var(--gray-300);border-radius:12px;background:#fff}
+/* ============ TIMELINE / CRONOGRAMA (Gantt) ============ */
+.g-head-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500)}
+.tl-legend{display:flex;gap:18px;align-items:center;font-size:12px;color:var(--gray-600);padding:2px 2px 14px;flex-wrap:wrap}
+.legend-dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+.tl-scroll{overflow-x:auto}
+.timeline{min-width:900px}
+.tl-months{display:flex;border-bottom:1px solid var(--gray-200)}
+.tl-udn-label{width:190px;flex:none;font-size:13px;padding:0 12px;display:flex;align-items:center;position:sticky;left:0;background:#fff;z-index:3}
+.tl-months .tl-udn-label{background:var(--gray-50);z-index:4;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500)}
+.tl-month{text-align:center;padding:8px 4px;font-size:11.5px;font-weight:700;color:var(--gray-600);border-left:1px solid var(--gray-100)}
+.tl-body{position:relative}
+.tl-row{display:flex;align-items:stretch;border-bottom:1px solid var(--gray-100)}
+.tl-row .tl-udn-label{cursor:pointer;font-weight:700;color:var(--ink);gap:4px}
+.tl-row .tl-udn-label:hover{color:var(--lipu-500)}
+.tl-track{position:relative;flex:1;min-height:54px}
+.tl-bar{position:absolute;top:50%;transform:translateY(-50%);height:22px;border-radius:6px;cursor:pointer;min-width:14px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.tl-bar:hover{filter:brightness(1.1)}
+.tl-bar.virtual{background:#5b5fc7}
+.tl-bar.presencial{background:#0e7490}
+.tl-bar.mixed{background:linear-gradient(90deg,#5b5fc7,#0e7490)}
+.tl-bar-label{position:absolute;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:700;color:var(--gray-700);white-space:nowrap;cursor:pointer}
+.tl-bar-label:hover{color:var(--ink)}
+.tl-plus{position:absolute;left:0;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:7px;border:1px dashed var(--gray-300);color:var(--gray-400);font-size:11.5px;background:#fff;cursor:pointer}
+.tl-plus:hover{border-color:var(--lipu-600);color:var(--gray-700);background:var(--gray-50)}
+.tl-today{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:5}
+.tl-today-label{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#ef4444;white-space:nowrap}
+/* ============ BREADCRUMB / DRILL-DOWN ============ */
+.breadcrumb{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13.5px;color:var(--gray-700)}
+.breadcrumb .bc-sep{color:var(--gray-300)}
+.dayhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+/* ============ HALLAZGOS ============ */
+.hallazgo-item{display:flex;align-items:center;gap:10px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:7px;padding:8px 10px;font-size:12.5px}
+.hallazgo-fecha{flex:none;font-weight:700;color:var(--gray-500);font-variant-numeric:tabular-nums;font-size:11.5px}
+.hallazgo-texto{flex:1;color:var(--gray-700)}
+.hallazgo-item button{border:0;background:transparent;color:var(--gray-400);width:20px;height:20px;border-radius:5px;flex:none}
+.hallazgo-item button:hover{background:#fecaca;color:var(--red-600)}
+.hallazgorow{display:flex;gap:8px}
+#hallazgoFecha{flex:none;width:150px}
+#hallazgoTexto{flex:1}
+.taglist.impl span{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+.t-modal.virtual{background:#eef0fd;color:#5b5fc7;border-color:#c7cbf5}
+.t-modal.presencial{background:#e6f6f8;color:#0e7490;border-color:#a8dee4}
+/* ============ MODAL ============ */
+.overlay{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:40px 20px;overflow:auto}
+.overlay.show{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:680px;box-shadow:0 24px 60px rgba(0,0,0,.22)}
+.modal.wide{max-width:820px}
+.modal-head{display:flex;align-items:center;gap:12px;padding:20px 26px;border-bottom:1px solid var(--border)}
+.modal-head h2{font-size:18px;font-weight:700;color:var(--ink);flex:1}
+.modal-close{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--gray-200);border-radius:10px;background:#fff;color:var(--gray-600);flex:none;font-size:16px}
+.modal-close:hover{background:var(--gray-50);border-color:var(--gray-400);color:var(--ink)}
+.modal-body{padding:18px 26px 6px}
+.sec{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray-400);margin:18px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--gray-100)}
+.sec:first-child{margin-top:0}
+.g{display:grid;gap:0 16px}
+.g.c2{grid-template-columns:1fr 1fr}
+.g.c3{grid-template-columns:1fr 1fr 1fr}
+.field{margin-bottom:14px;display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;color:var(--gray-700);font-weight:600}
+.field .ctrl{height:40px;width:100%}
+.field textarea.ctrl{height:auto;padding:9px 12px;resize:vertical}
+.modseg{display:inline-flex;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:9px;padding:3px;gap:3px;width:100%}
+.modseg button{flex:1;height:34px;border:0;border-radius:7px;background:transparent;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--gray-600)}
+.modseg button.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.tagpicker{display:flex;flex-direction:column;gap:8px}
+.tagchips{display:flex;flex-wrap:wrap;gap:6px;min-height:4px}
+.tagchip{display:inline-flex;align-items:center;gap:6px;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:7px;padding:4px 6px 4px 10px;font-size:12.5px;color:var(--gray-700)}
+.tagchip button{border:0;background:transparent;color:var(--gray-500);display:grid;place-items:center;width:16px;height:16px;border-radius:4px;font-size:11px}
+.tagchip button:hover{background:#fecaca;color:var(--red-600)}
+.tagrow{display:flex;gap:8px}
+.tagrow input{flex:1}
+.hint{font-size:12px;color:var(--red-600);margin-top:2px}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 26px 22px;border-top:1px solid var(--border);margin-top:6px}
+footer{margin-top:36px;text-align:center;color:var(--gray-500);font-size:12px;padding-bottom:20px}
+/* ============ CATÁLOGOS ============ */
+.catgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.catsec{border:1px solid var(--gray-200);border-radius:10px;padding:14px}
+.catsec h3{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.catsec h3 span{font-size:11.5px;color:var(--gray-400);font-weight:600}
+.catlist{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.catitem{display:flex;align-items:center;gap:8px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--gray-800)}
+.catitem span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catitem button{border:0;background:transparent;color:var(--gray-400);width:22px;height:22px;border-radius:5px;display:grid;place-items:center}
+.catitem button:hover{background:#fecaca;color:var(--red-600)}
+.catempty{font-size:12.5px;color:var(--gray-400);padding:8px 0;text-align:center}
+@media (max-width:760px){ .g.c2,.g.c3{grid-template-columns:1fr} .search input.ctrl{width:160px} .catgrid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-ico">🧭</span>
+    <div class="brand-word">AGENDA DE IMPLEMENTACIÓN MIND</div>
+  </div>
+  <div class="topright">
+    <span id="connBadge"><span class="dot" id="connDot"></span><span id="connText">Modo demo local</span></span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="pagehead">
+    <div class="pagehead-top">
+      <div>
+        <h1>Implementación MIND</h1>
+        <p>Cronograma de capacitación por unidad de negocio (UDN), con roles, módulos y modalidad.</p>
+      </div>
+      <div class="headright">
+        <button class="lb lb-md lb-secondary" id="catalogosBtn">Catálogos</button>
+        <button class="lb lb-md lb-secondary" id="exportIcsBtn">Exportar .ics</button>
+        <button class="lb lb-md lb-secondary" id="exportCsvBtn">Exportar .csv</button>
+        <button class="lb lb-md lb-primary" id="newSessionBtn">+ Nueva sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="card" style="margin-bottom:20px">
+    <div class="toolbar">
+      <select class="ctrl" id="filterUDN"><option value="">Todas las UDN</option></select>
+      <select class="ctrl" id="filterFaseGeneral"><option value="">Todas las fases</option></select>
+      <select class="ctrl" id="filterModalidad">
+        <option value="">Toda modalidad</option>
+        <option value="Virtual (Teams)">Virtual (Teams)</option>
+        <option value="Presencial">Presencial</option>
+      </select>
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.4 2a8.4 8.4 0 1 0 5.05 15.1l4.65 4.65a1.3 1.3 0 0 0 1.84-1.84l-4.65-4.65A8.4 8.4 0 0 0 10.4 2Zm0 2.6a5.8 5.8 0 1 1 0 11.6 5.8 5.8 0 0 1 0-11.6Z"/></svg>
+        <input class="ctrl" type="text" id="filterSearch" placeholder="Buscar por UDN, rol, módulo…">
+      </label>
+    </div>
+    <div class="contentwrap" id="content" style="padding:18px"></div>
+  </section>
+
+  <footer>Comparte el link de esta página con quien necesites — los cambios se sincronizan para todos en tiempo real cuando la nube está conectada.</footer>
+</div>
+
+<!-- ============ MODAL: SESIÓN ============ -->
+<div class="overlay" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Nueva sesión</h2>
+      <button type="button" class="modal-close" id="cancelBtnTop" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="sessionForm">
+      <div class="modal-body">
+        <input type="hidden" id="sessionId">
+        <div class="g c3">
+          <div class="field">
+            <label>UDN (unidad de negocio) <span id="f_udn_hint" style="text-transform:none;font-weight:500;color:var(--gray-400);display:none">— ya seleccionada</span></label>
+            <select class="ctrl" id="f_udn" required><option value="">Seleccionar UDN...</option></select>
+          </div>
+          <div class="field">
+            <label>Fase general</label>
+            <select class="ctrl" id="f_faseGeneral" required>
+              <option value="">Seleccionar fase...</option>
+              <option value="Fase 1">Fase 1</option>
+              <option value="Fase 2">Fase 2</option>
+              <option value="Fase 3">Fase 3</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Día de capacitación</label>
+            <select class="ctrl" id="f_dia" required><option value="">Seleccionar día...</option></select>
+          </div>
+        </div>
+        <div class="g c3">
+          <div class="field">
+            <label>Fecha</label>
+            <input class="ctrl" type="date" id="f_date" required>
+          </div>
+          <div class="field">
+            <label>Hora de inicio</label>
+            <input class="ctrl" type="time" id="f_start" required>
+          </div>
+          <div class="field">
+            <label>Duración (min)</label>
+            <input class="ctrl" type="number" id="f_duration" min="15" step="15" value="60" required>
+          </div>
+        </div>
+        <div class="g c2">
+          <div class="field">
+            <label>Modalidad</label>
+            <div class="modseg" id="modSeg">
+              <button type="button" class="active" data-mod="Virtual (Teams)">💻 Virtual (Teams)</button>
+              <button type="button" data-mod="Presencial">🏢 Presencial</button>
+            </div>
+          </div>
+          <div class="field">
+            <label id="lugarLabel">Link de Teams</label>
+            <input class="ctrl" type="text" id="f_lugar" placeholder="https://teams.microsoft.com/...">
+          </div>
+        </div>
+        <div class="field">
+          <label>Objetivo de la sesión</label>
+          <textarea class="ctrl" id="f_objetivo" rows="2" placeholder="Se autocompleta según la fase elegida"></textarea>
+        </div>
+
+        <div class="sec">Módulos</div>
+        <div class="tagpicker">
+          <div class="tagchips" id="modulosTags"></div>
+          <div class="tagrow">
+            <input class="ctrl" type="text" id="modulosInput" list="modulosList" placeholder="Escribe o elige un módulo y presiona Agregar">
+            <datalist id="modulosList"></datalist>
+            <button type="button" class="lb lb-sm lb-secondary" id="addModuloBtn">+ Agregar</button>
+          </div>
+        </div>
+
+        <div class="sec">Roles requeridos</div>
+        <div class="tagpicker">
+          <div class="tagchips" id="rolesTags"></div>
+          <div class="tagrow">
+            <input class="ctrl" type="text" id="rolesInput" list="rolesList" placeholder="Escribe o elige un rol y presiona Agregar">
+            <datalist id="rolesList"></datalist>
+            <button type="button" class="lb lb-sm lb-secondary" id="addRolBtn">+ Agregar</button>
+          </div>
+        </div>
+
+        <div class="sec">Áreas involucradas <span style="text-transform:none;font-weight:500;color:var(--gray-400)">(opcional)</span></div>
+        <div class="tagpicker">
+          <div class="tagchips" id="areasTags"></div>
+          <div class="tagrow">
+            <input class="ctrl" type="text" id="areasInput" list="areasList" placeholder="Escribe o elige un área y presiona Agregar">
+            <datalist id="areasList"></datalist>
+            <button type="button" class="lb lb-sm lb-secondary" id="addAreaBtn">+ Agregar</button>
+          </div>
+        </div>
+
+        <div class="sec">Implementadores <span style="text-transform:none;font-weight:500;color:var(--gray-400)">(quién imparte la sesión)</span></div>
+        <div class="tagpicker">
+          <div class="tagchips" id="implementadoresTags"></div>
+          <div class="tagrow">
+            <input class="ctrl" type="text" id="implementadoresInput" list="implementadoresList" placeholder="Escribe o elige un implementador y presiona Agregar">
+            <datalist id="implementadoresList"></datalist>
+            <button type="button" class="lb lb-sm lb-secondary" id="addImplementadorBtn">+ Agregar</button>
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:16px">
+          <label>Notas <span style="font-weight:400;color:var(--gray-400)">(opcional)</span></label>
+          <textarea class="ctrl" id="f_notas" rows="2" placeholder="Notas adicionales de la sesión"></textarea>
+        </div>
+
+        <div class="sec">Hallazgos de la sesión <span style="text-transform:none;font-weight:500;color:var(--gray-400)">(opcional)</span></div>
+        <div class="tagpicker">
+          <div id="hallazgosList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+          <div class="hallazgorow">
+            <input class="ctrl" type="date" id="hallazgoFecha">
+            <input class="ctrl" type="text" id="hallazgoTexto" placeholder="Describe el hallazgo y presiona Agregar">
+            <button type="button" class="lb lb-sm lb-secondary" id="addHallazgoBtn">+ Agregar</button>
+          </div>
+        </div>
+
+        <div id="conflictWarning" class="hint"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="lb lb-md lb-secondary" id="cancelBtn">Cancelar</button>
+        <button type="button" class="lb lb-md lb-quitar" id="deleteBtn" style="display:none;">Eliminar</button>
+        <button type="submit" class="lb lb-md lb-primary">Guardar sesión</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MODAL: CATÁLOGOS ============ -->
+<div class="overlay" id="catalogModal">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h2>Catálogos</h2>
+      <button type="button" class="modal-close" id="catCloseTop" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" style="padding-bottom:22px">
+      <div class="catgrid">
+        <div class="catsec">
+          <h3>UDN <span id="cnt-udn">0</span></h3>
+          <div class="catlist" id="list-udn"></div>
+          <div class="tagrow"><input class="ctrl" type="text" id="input-udn" placeholder="Nueva UDN, ej. LIPU Toluca"><button type="button" class="lb lb-sm lb-secondary" data-cat="udn">+ Agregar</button></div>
+        </div>
+        <div class="catsec">
+          <h3>Roles <span id="cnt-roles">0</span></h3>
+          <div class="catlist" id="list-roles"></div>
+          <div class="tagrow"><input class="ctrl" type="text" id="input-roles" placeholder="Nuevo rol"><button type="button" class="lb lb-sm lb-secondary" data-cat="roles">+ Agregar</button></div>
+        </div>
+        <div class="catsec">
+          <h3>Áreas <span id="cnt-areas">0</span></h3>
+          <div class="catlist" id="list-areas"></div>
+          <div class="tagrow"><input class="ctrl" type="text" id="input-areas" placeholder="Nueva área"><button type="button" class="lb lb-sm lb-secondary" data-cat="areas">+ Agregar</button></div>
+        </div>
+        <div class="catsec">
+          <h3>Módulos <span id="cnt-modulos">0</span></h3>
+          <div class="catlist" id="list-modulos"></div>
+          <div class="tagrow"><input class="ctrl" type="text" id="input-modulos" placeholder="Nuevo módulo"><button type="button" class="lb lb-sm lb-secondary" data-cat="modulos">+ Agregar</button></div>
+        </div>
+        <div class="catsec">
+          <h3>Implementadores <span id="cnt-implementadores">0</span></h3>
+          <div class="catlist" id="list-implementadores"></div>
+          <div class="tagrow"><input class="ctrl" type="text" id="input-implementadores" placeholder="Nuevo implementador"><button type="button" class="lb lb-sm lb-secondary" data-cat="implementadores">+ Agregar</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="lb lb-md lb-primary" id="catCloseBtn">Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: EDITAR FECHAS DE UDN ============ -->
+<div class="overlay" id="rangeModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <h2 id="rangeModalTitle">Editar fechas</h2>
+      <button type="button" class="modal-close" id="rangeCloseTop" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" style="padding-bottom:6px">
+      <input type="hidden" id="range_udn">
+      <div class="g c2">
+        <div class="field">
+          <label>Fecha inicio</label>
+          <input class="ctrl" type="date" id="range_start">
+        </div>
+        <div class="field">
+          <label>Fecha fin</label>
+          <input class="ctrl" type="date" id="range_end">
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--gray-500);margin:2px 0 14px">Esto mueve/ajusta proporcionalmente las fechas de todas las sesiones ya programadas de esta UDN para que la implementación completa quede entre estas dos fechas.</p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="lb lb-md lb-secondary" id="rangeCancelBtn">Cancelar</button>
+      <button type="button" class="lb lb-md lb-primary" id="rangeSaveBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
