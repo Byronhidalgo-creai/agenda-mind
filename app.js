@@ -22,9 +22,18 @@ const FASES_GENERAL = ["Fase 1", "Fase 2", "Fase 3"];
    Se usa como valor por default al crear una semana nueva con
    "Asignar semana", para no tener que capturar cada rol/módulo a
    mano. Arranca con los valores reales de la agenda general que
-   nos compartieron (agrupando por día todos los roles y módulos
-   que aparecen, y sumando la duración de cada bloque); se puede
-   reemplazar en cualquier momento desde "Importar agenda".
+   nos compartieron; se puede reemplazar en cualquier momento desde
+   "Importar agenda".
+
+   Cada día trae un arreglo `bloques`: uno por cada sesión real que
+   compone ese día (en la agenda general, un día no es una sola
+   sesión larga, sino varias sesiones más cortas seguidas, cada una
+   con sus propios roles/módulos/duración). "Asignar semana" crea
+   UNA sesión por bloque — no una sola sesión gigante por día — y
+   les asigna horarios consecutivos empezando en la hora de inicio
+   que elijas. `roles`/`modulos`/`duracion` a nivel de día siguen
+   existiendo como el total/unión de todos sus bloques, y se usan
+   como sugerencia al crear o editar una sesión suelta a mano.
    ============================================================ */
 const BUILTIN_TEMPLATE = {
   dia1: {
@@ -35,6 +44,14 @@ const BUILTIN_TEMPLATE = {
       "Gerente General de UDN", "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"],
     modulos: ["Landing Page / Agenda", "Clientes, Unidades y Operadores", "Supervisores", "Agente compañero de viaje",
       "Rutas", "Programación maestra", "Incidencias", "Agente clasificador de incidencias", "Aprobaciones"],
+    bloques: [
+      { duracion: 30, roles: ["Gerentes y directivos de UDN"], modulos: ["Landing Page / Agenda"] },
+      { duracion: 60, roles: ["Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)", "Jefe de coordinadores", "Coordinador de Operaciones", "Seguridad Vial", "RP", "Administración", "Facturación"], modulos: ["Clientes, Unidades y Operadores"] },
+      { duracion: 60, roles: ["Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)", "Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Supervisores", "Agente compañero de viaje"] },
+      { duracion: 120, roles: ["Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)", "Técnico de Rutas"], modulos: ["Rutas", "Programación maestra"] },
+      { duracion: 60, roles: ["Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)", "Jefe de coordinadores", "Coordinador de Operaciones", "Seguridad Vial", "Operador de monitoreo", "Jefe de Cabina", "Ajustador"], modulos: ["Incidencias", "Agente clasificador de incidencias"] },
+      { duracion: 30, roles: ["Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)", "Jefe de logística", "Gerente General de UDN", "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"], modulos: ["Aprobaciones"] },
+    ],
   },
   dia2: {
     duracion: 360, // 6 h
@@ -43,6 +60,13 @@ const BUILTIN_TEMPLATE = {
       "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"],
     modulos: ["Clientes, Unidades y Operadores", "Supervisores", "Agente compañero de viaje", "Rutas",
       "Programación maestra", "Incidencias", "Agente clasificador de incidencias", "Aprobaciones"],
+    bloques: [
+      { duracion: 60, roles: ["Logística Operativa (MAE)", "Jefe de coordinadores"], modulos: ["Clientes, Unidades y Operadores"] },
+      { duracion: 60, roles: ["Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Supervisores", "Agente compañero de viaje"] },
+      { duracion: 120, roles: ["Logística Operativa (MAE)", "Técnico de Rutas"], modulos: ["Rutas", "Programación maestra"] },
+      { duracion: 60, roles: ["Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Incidencias", "Agente clasificador de incidencias"] },
+      { duracion: 60, roles: ["Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)", "Jefe de logística", "Gerente General de UDN", "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"], modulos: ["Aprobaciones"] },
+    ],
   },
   dia3: {
     duracion: 300, // 5 h
@@ -51,13 +75,26 @@ const BUILTIN_TEMPLATE = {
       "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"],
     modulos: ["Supervisores", "Agente compañero de viaje", "Incidencias", "Agente clasificador de incidencias",
       "Rutas", "Programación maestra", "Aprobaciones"],
+    bloques: [
+      { duracion: 60, roles: ["Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Supervisores", "Agente compañero de viaje"] },
+      { duracion: 60, roles: ["Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Incidencias", "Agente clasificador de incidencias"] },
+      { duracion: 120, roles: ["Logística Operativa (MAE)", "Técnico de Rutas"], modulos: ["Rutas", "Programación maestra"] },
+      { duracion: 60, roles: ["Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)", "Jefe de logística", "Gerente General de UDN", "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"], modulos: ["Aprobaciones"] },
+    ],
   },
   dia4: {
     duracion: 300, // 5 h
     roles: ["Jefe de coordinadores", "Coordinador de Operaciones", "Logística Operativa (MAE)", "Técnico de Rutas",
       "Gerente de logística", "Gerente de Operaciones", "Jefe de logística", "Gerente General de UDN",
       "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"],
-    modulos: ["Incidencias", "Agente clasificador de incidencias", "Rutas", "Programación maestra", "Aprobaciones"],
+    modulos: ["Supervisores", "Agente compañero de viaje", "Incidencias", "Agente clasificador de incidencias",
+      "Rutas", "Programación maestra", "Aprobaciones"],
+    bloques: [
+      { duracion: 60, roles: ["Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Supervisores", "Agente compañero de viaje"] },
+      { duracion: 60, roles: ["Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Incidencias", "Agente clasificador de incidencias"] },
+      { duracion: 120, roles: ["Logística Operativa (MAE)", "Técnico de Rutas"], modulos: ["Rutas", "Programación maestra"] },
+      { duracion: 60, roles: ["Gerente de logística", "Gerente de Operaciones", "Logística Operativa (MAE)", "Jefe de logística", "Gerente General de UDN", "Jefe de monitoreo", "Gerente de Administración", "Gerente de RP"], modulos: ["Aprobaciones"] },
+    ],
   },
   dia5: {
     duracion: 225, // 3 h 45 min
@@ -65,6 +102,12 @@ const BUILTIN_TEMPLATE = {
       "Gerentes y directivos de UDN"],
     modulos: ["Agente compañero de viaje", "Incidencias", "Agente clasificador de incidencias", "Rutas",
       "Programación maestra", "Sesión de cierre"],
+    bloques: [
+      { duracion: 60, roles: ["Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Agente compañero de viaje"] },
+      { duracion: 60, roles: ["Jefe de coordinadores", "Coordinador de Operaciones"], modulos: ["Incidencias", "Agente clasificador de incidencias"] },
+      { duracion: 60, roles: ["Logística Operativa (MAE)", "Técnico de Rutas"], modulos: ["Rutas", "Programación maestra"] },
+      { duracion: 45, roles: ["Gerentes y directivos de UDN"], modulos: ["Sesión de cierre"] },
+    ],
   },
 };
 // `agendaTemplate` es el que realmente se usa en la app: arranca igual al
@@ -78,6 +121,11 @@ let agendaTemplate = JSON.parse(JSON.stringify(BUILTIN_TEMPLATE));
 let sessions = [];
 let catalogs = { udn: [], roles: [], modulos: [], implementadores: [] };
 let mode = "demo";
+// Contador para IDs locales únicos: Date.now() solo no alcanza cuando se
+// crean varias sesiones seguidas muy rápido (ej. "Asignar semana" ahora crea
+// varias sesiones por día, una por bloque), porque puede repetirse el mismo
+// milisegundo.
+let localIdCounter = 0;
 let supabase = null;
 
 const isConfigured =
@@ -197,17 +245,17 @@ async function fetchTemplate() {
   if (error) { console.error("[Agenda MIND] Error leyendo la plantilla de agenda:", error); return; }
   const grouped = {};
   (data || []).forEach(row => {
-    grouped[row.dia_id] = { roles: row.roles || [], modulos: row.modulos || [], duracion: row.duracion || 0 };
+    grouped[row.dia_id] = { roles: row.roles || [], modulos: row.modulos || [], duracion: row.duracion || 0, bloques: row.bloques || [] };
   });
   if (Object.keys(grouped).length) agendaTemplate = grouped;
 }
 async function seedTemplateInSupabase() {
-  const rows = Object.entries(BUILTIN_TEMPLATE).map(([dia_id, t]) => ({ dia_id, roles: t.roles, modulos: t.modulos, duracion: t.duracion }));
+  const rows = Object.entries(BUILTIN_TEMPLATE).map(([dia_id, t]) => ({ dia_id, roles: t.roles, modulos: t.modulos, duracion: t.duracion, bloques: t.bloques || [] }));
   const { error } = await supabase.from(TEMPLATE_TABLE).insert(rows);
   if (error) console.error("[Agenda MIND] No se pudo sembrar la plantilla inicial:", error);
 }
 async function saveTemplateToSupabase(partialTemplate) {
-  const rows = Object.entries(partialTemplate).map(([dia_id, t]) => ({ dia_id, roles: t.roles, modulos: t.modulos, duracion: t.duracion }));
+  const rows = Object.entries(partialTemplate).map(([dia_id, t]) => ({ dia_id, roles: t.roles, modulos: t.modulos, duracion: t.duracion, bloques: t.bloques || [] }));
   const { error } = await supabase.from(TEMPLATE_TABLE).upsert(rows, { onConflict: "dia_id" });
   if (error) console.error("[Agenda MIND] Error guardando la plantilla de agenda:", error);
 }
@@ -311,7 +359,7 @@ async function saveSession(data) {
       const idx = sessions.findIndex(s => s.id === data.id);
       if (idx >= 0) sessions[idx] = { ...data };
     } else {
-      sessions.push({ ...data, id: "local-" + Date.now() });
+      sessions.push({ ...data, id: "local-" + Date.now() + "-" + (++localIdCounter) });
     }
     renderAll();
   }
@@ -677,8 +725,17 @@ function updateWeekPreview() {
   const preview = document.getElementById("weekPreview");
   if (!startVal) { preview.textContent = ""; return; }
   const dates = computeWeekdayDates(startVal, DIAS.length);
-  const durTxt = DIAS.map(dia => agendaTemplate[dia.id]?.duracion ? fmtDuration(agendaTemplate[dia.id].duracion) : "sin plantilla").join(", ");
-  preview.textContent = `Se programarán del ${fmtDateShort(dates[0])} al ${fmtDateShort(dates[dates.length - 1])} (Día 1 a Día ${DIAS.length}, en días hábiles consecutivos). Duración por día según tu plantilla: ${durTxt}.`;
+  const totalSesiones = DIAS.reduce((sum, dia) => {
+    const tpl = agendaTemplate[dia.id];
+    return sum + (tpl?.bloques?.length || (tpl ? 1 : 0));
+  }, 0);
+  const durTxt = DIAS.map(dia => {
+    const tpl = agendaTemplate[dia.id];
+    if (!tpl) return "sin plantilla";
+    const nSesiones = tpl.bloques?.length || 1;
+    return `${fmtDuration(tpl.duracion)} en ${nSesiones} sesion${nSesiones === 1 ? "" : "es"}`;
+  }).join(", ");
+  preview.textContent = `Se programarán del ${fmtDateShort(dates[0])} al ${fmtDateShort(dates[dates.length - 1])} (Día 1 a Día ${DIAS.length}, en días hábiles consecutivos) — ${totalSesiones} sesiones en total. Por día, según tu plantilla: ${durTxt}.`;
 }
 document.getElementById("week_start").addEventListener("input", updateWeekPreview);
 
@@ -716,22 +773,37 @@ async function createWeekForUdn(udn, opts) {
     const dia = DIAS[i];
     if (existingDiaIds.has(dia.id)) continue; // no duplicar días ya programados
     const tpl = agendaTemplate[dia.id];
-    await saveSession({
-      udn,
-      fase,
-      diaId: dia.id,
-      date: dates[i],
-      start: startTime,
-      duration: tpl?.duracion ? Number(tpl.duracion) : Number(duration),
-      modalidad,
-      lugar: lugar || "",
-      objetivo: dia.objetivo,
-      notas: "",
-      modulos: tpl?.modulos ? [...tpl.modulos] : [],
-      roles: tpl?.roles ? [...tpl.roles] : [],
-      implementadores: [],
-      hallazgos: [],
-    });
+    // Un día real no es una sola sesión larga: la plantilla trae varios
+    // "bloques" (uno por cada sesión real de ese día, cada uno con sus
+    // propios roles/módulos/duración). Se crea UNA sesión por bloque, con
+    // horarios consecutivos empezando en `startTime`. Si la plantilla de
+    // este día no trae bloques (ej. una plantilla vieja o importada sin esa
+    // info), se cae de vuelta a crear una sola sesión con el total del día,
+    // como se hacía antes.
+    const bloques = (tpl?.bloques && tpl.bloques.length)
+      ? tpl.bloques
+      : [{ duracion: tpl?.duracion ? Number(tpl.duracion) : Number(duration), roles: tpl?.roles || [], modulos: tpl?.modulos || [] }];
+    let cursorMinutes = timeToMinutes(startTime);
+    for (const bloque of bloques) {
+      const dur = Number(bloque.duracion) || Number(duration);
+      await saveSession({
+        udn,
+        fase,
+        diaId: dia.id,
+        date: dates[i],
+        start: minutesToLabel(cursorMinutes),
+        duration: dur,
+        modalidad,
+        lugar: lugar || "",
+        objetivo: dia.objetivo,
+        notas: "",
+        modulos: [...(bloque.modulos || [])],
+        roles: [...(bloque.roles || [])],
+        implementadores: [],
+        hallazgos: [],
+      });
+      cursorMinutes += dur;
+    }
   }
 }
 
@@ -760,7 +832,11 @@ function getUdnAgenda(udn) {
   return sessions.filter(s => s.udn === udn).slice().sort((a, b) => {
     const da = diaById(a.diaId)?.dia ?? 999, db = diaById(b.diaId)?.dia ?? 999;
     if (da !== db) return da - db;
-    return (a.date || "").localeCompare(b.date || "");
+    const dateCmp = (a.date || "").localeCompare(b.date || "");
+    if (dateCmp !== 0) return dateCmp;
+    // Un mismo día puede tener varias sesiones (bloques) en la misma fecha —
+    // se ordenan por hora de inicio para que queden en el orden real del día.
+    return (a.start || "").localeCompare(b.start || "");
   });
 }
 
@@ -821,7 +897,11 @@ function openReplicateModal(sourceUdn) {
   replicateSelections = {};
   document.getElementById("replicate_source_udn").value = sourceUdn;
   document.getElementById("replicateModalTitle").textContent = `Replicar agenda de ${sourceUdn}`;
-  const diasTxt = agenda.map(s => "Día " + (diaById(s.diaId)?.dia ?? "?")).join(", ");
+  const countByDia = {};
+  agenda.forEach(s => { countByDia[s.diaId] = (countByDia[s.diaId] || 0) + 1; });
+  const diasTxt = Object.entries(countByDia)
+    .map(([diaId, n]) => `Día ${diaById(diaId)?.dia ?? "?"} (${n} sesion${n === 1 ? "" : "es"})`)
+    .join(", ");
   document.getElementById("replicateExplain").textContent =
     `Se copian las mismas ${agenda.length} ${agenda.length === 1 ? "sesión" : "sesiones"} (${diasTxt}) — fase, modalidad, objetivo, módulos, roles e implementadores — a cada UDN que marques abajo. Cada una usa su propia fecha de inicio (Día 1); los demás días se acomodan en los siguientes días hábiles, igual que "Asignar semana". No se copian fechas ni hallazgos.`;
   document.getElementById("replicateSearch").value = "";
@@ -839,18 +919,27 @@ document.getElementById("replicateCancelBtn").onclick = closeReplicateModal;
 replicateModal.onclick = (e) => { if (e.target === replicateModal) closeReplicateModal(); };
 
 async function replicateAgendaToUdn(sourceAgenda, targetUdn, startDate) {
-  const dates = computeWeekdayDates(startDate, sourceAgenda.length);
+  // `sourceAgenda` puede traer VARIAS sesiones por día (un bloque cada
+  // una), así que las fechas hábiles consecutivas se calculan por día
+  // distinto, no por sesión — todas las sesiones de un mismo día deben
+  // caer en la misma fecha, solo con horarios distintos (como ya vienen
+  // en `src.start`/`src.duration`).
+  const diaIdsUnicos = [...new Set(sourceAgenda.map(s => s.diaId))];
+  const dates = computeWeekdayDates(startDate, diaIdsUnicos.length);
+  const dateByDiaId = Object.fromEntries(diaIdsUnicos.map((diaId, i) => [diaId, dates[i]]));
   const existingDiaIds = new Set(sessions.filter(s => s.udn === targetUdn).map(s => s.diaId));
   let created = 0;
   const skipped = [];
-  for (let i = 0; i < sourceAgenda.length; i++) {
-    const src = sourceAgenda[i];
-    if (existingDiaIds.has(src.diaId)) { skipped.push(diaById(src.diaId)?.dia ?? "?"); continue; } // no duplicar días ya programados en el destino
+  for (const src of sourceAgenda) {
+    if (existingDiaIds.has(src.diaId)) {
+      if (!skipped.includes(diaById(src.diaId)?.dia)) skipped.push(diaById(src.diaId)?.dia ?? "?"); // no duplicar días ya programados en el destino
+      continue;
+    }
     await saveSession({
       udn: targetUdn,
       fase: src.fase,
       diaId: src.diaId,
-      date: dates[i],
+      date: dateByDiaId[src.diaId],
       start: src.start,
       duration: src.duration,
       modalidad: src.modalidad,
@@ -952,9 +1041,8 @@ function sessionCompactRowHtml(s) {
   return `
     <div class="scard compact-row" data-id="${s.id}" style="border-left-color:${barColor}">
       <span class="compact-time">${s.start}–${endLabel}</span>
-      <span class="compact-badge" style="background:${dia.bg};border-color:${dia.border};color:${dia.color}">Día ${dia.dia || ""}</span>
-      <span class="compact-name" title="${escapeHtml(dia.nombre)}">${escapeHtml(dia.nombre)}</span>
-      ${modulos.length ? `<span class="compact-modulos${modulosSugeridos ? " suggested" : ""}" title="${escapeHtml((modulosSugeridos ? "Sugerido de la plantilla — aún no guardado en la sesión: " : "") + modulos.join(", "))}">${escapeHtml(modulos.join(", "))}</span>` : ""}
+      <span class="compact-badge" style="background:${dia.bg};border-color:${dia.border};color:${dia.color}" title="${escapeHtml(dia.nombre)}">Día ${dia.dia || ""}</span>
+      ${modulos.length ? `<span class="compact-modulos${modulosSugeridos ? " suggested" : ""}" title="${escapeHtml((modulosSugeridos ? "Sugerido de la plantilla — aún no guardado en la sesión: " : "") + modulos.join(", "))}">${escapeHtml(modulos.join(", "))}</span>` : `<span class="compact-name" title="${escapeHtml(dia.nombre)}">${escapeHtml(dia.nombre)}</span>`}
       ${s.fase ? `<span class="tchip" style="background:var(--gray-100);border-color:var(--gray-200);color:var(--gray-700)">${escapeHtml(s.fase)}</span>` : ""}
       <span class="tchip t-modal ${modClass}">${escapeHtml(s.modalidad)}</span>
       ${conflicts.length ? `<span class="tchip" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626" title="Choque de sala con otra sesión">Choque</span>` : ""}
@@ -1440,10 +1528,19 @@ async function parseTemplateWorkbook(file) {
     const effectiveDia = diaNum || lastDiaNum;
     if (!effectiveDia || effectiveDia < 1 || effectiveDia > DIAS.length) return;
     const diaId = "dia" + effectiveDia;
-    result[diaId] ??= { roles: [], modulos: [], duracion: 0 };
-    addUnique(result[diaId].roles, splitRoles(row[kRoles]));
-    addUnique(result[diaId].modulos, splitModulos(row[kModulos]));
-    if (kDuracion) result[diaId].duracion += parseDurationToMinutes(row[kDuracion]);
+    result[diaId] ??= { roles: [], modulos: [], duracion: 0, bloques: [] };
+    const rolesFila = splitRoles(row[kRoles]);
+    const modulosFila = splitModulos(row[kModulos]);
+    const duracionFila = kDuracion ? parseDurationToMinutes(row[kDuracion]) : 0;
+    addUnique(result[diaId].roles, rolesFila);
+    addUnique(result[diaId].modulos, modulosFila);
+    result[diaId].duracion += duracionFila;
+    // Cada fila de la hoja es una sesión real dentro del día (un "bloque"):
+    // se guarda tal cual para que "Asignar semana" pueda crear una sesión
+    // por bloque en vez de una sola sesión gigante por día.
+    if (rolesFila.length || modulosFila.length) {
+      result[diaId].bloques.push({ duracion: duracionFila, roles: rolesFila, modulos: modulosFila });
+    }
   });
   return result;
 }
@@ -1455,12 +1552,15 @@ function renderTemplatePreview(tpl) {
     if (!t) {
       return `<div class="tplday"><h4>Día ${dia.dia} · ${escapeHtml(dia.nombre)}</h4><div class="catempty">No se encontró información para este día en el archivo — se deja la plantilla actual sin cambios.</div></div>`;
     }
+    const nBloques = t.bloques?.length || 0;
     return `<div class="tplday">
-      <h4>Día ${dia.dia} · ${escapeHtml(dia.nombre)} — ${t.duracion ? fmtDuration(t.duracion) : "sin duración detectada"}</h4>
+      <h4>Día ${dia.dia} · ${escapeHtml(dia.nombre)} — ${t.duracion ? fmtDuration(t.duracion) : "sin duración detectada"}${nBloques ? ` · ${nBloques} sesión${nBloques === 1 ? "" : "es"}` : ""}</h4>
       <div class="field-label-mini">Roles (${t.roles.length})</div>
       <div class="taglist roles">${t.roles.map(r => `<span>${escapeHtml(r)}</span>`).join("") || "—"}</div>
       <div class="field-label-mini">Módulos (${t.modulos.length})</div>
       <div class="taglist">${t.modulos.map(m => `<span>${escapeHtml(m)}</span>`).join("") || "—"}</div>
+      ${nBloques ? `<div class="field-label-mini">Desglose de las ${nBloques} sesiones que se crearán para este día</div>
+      <div class="tplbloques">${t.bloques.map((b, i) => `<div class="tplbloque"><b>Sesión ${i + 1}</b> · ${fmtDuration(b.duracion)} — ${escapeHtml((b.modulos || []).join(", ") || "sin módulo")}</div>`).join("")}</div>` : ""}
     </div>`;
   }).join("");
 }
