@@ -21,8 +21,8 @@
 // ============================================================
 
 export const supabaseConfig = {
-  url: "https://lacszlxboatwgiscmlwo.supabase.co",
-  anonKey: "sb_publishable_5MY5onPn6fSUER5FlW8WVw_HQhL4QX8",
+  url: "TU_SUPABASE_URL",         // ej. https://abcdefghijk.supabase.co
+  anonKey: "TU_SUPABASE_ANON_KEY", // Project Settings → API → "anon public"
 };
 
 // Nombre de la tabla donde se guardan las sesiones de capacitación.
@@ -30,6 +30,11 @@ export const supabaseConfig = {
 export const SESSIONS_TABLE = "capacitaciones";
 
 // Nombre de la tabla donde se guardan los elementos de los catálogos
-// editables (UDN, Roles, Áreas, Módulos, Implementadores). Cada fila es
+// editables (UDN, Roles, Módulos, Implementadores). Cada fila es
 // un elemento; la columna "kind" indica a qué catálogo pertenece.
 export const CATALOG_TABLE = "catalog_items";
+
+// Nombre de la tabla donde se guarda la plantilla de agenda (roles,
+// módulos y duración por día) que se usa al crear una semana nueva con
+// "Asignar semana". Se actualiza con el botón "Importar agenda".
+export const TEMPLATE_TABLE = "agenda_template";
