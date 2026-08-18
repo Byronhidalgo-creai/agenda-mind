@@ -21,8 +21,8 @@
 // ============================================================
 
 export const supabaseConfig = {
-  url: "TU_SUPABASE_URL",         // ej. https://abcdefghijk.supabase.co
-  anonKey: "TU_SUPABASE_ANON_KEY", // Project Settings → API → "anon public"
+  url: "https://lacszlxboatwgiscmlwo.supabase.co",
+  anonKey: "sb_publishable_5MY5onPn6fSUER5FlW8WVw_HQhL4QX8",
 };
 
 // Nombre de la tabla donde se guardan las sesiones de capacitación.
