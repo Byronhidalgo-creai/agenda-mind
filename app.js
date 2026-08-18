@@ -894,12 +894,30 @@ document.getElementById("replicateSaveBtn").onclick = async () => {
   renderAll();
 };
 
+// Módulos/roles "efectivos" a mostrar para una sesión: si la sesión ya
+// tiene los suyos guardados se usan esos; si no, se muestran los de la
+// plantilla de ese día como sugerencia (aún no guardados en la sesión),
+// para que siempre se vea qué módulo(s) le tocan aunque sea una sesión
+// vieja o creada antes de tener plantilla. `sugerido` indica cuál fue el caso.
+function effectiveModulosRoles(s) {
+  const tpl = agendaTemplate[s.diaId];
+  const modulosPropios = s.modulos || [];
+  const rolesPropios = s.roles || [];
+  return {
+    modulos: modulosPropios.length ? modulosPropios : (tpl?.modulos || []),
+    roles: rolesPropios.length ? rolesPropios : (tpl?.roles || []),
+    modulosSugeridos: !modulosPropios.length && !!(tpl?.modulos || []).length,
+    rolesSugeridos: !rolesPropios.length && !!(tpl?.roles || []).length,
+  };
+}
+
 function sessionCardHtml(s) {
   const dia = diaById(s.diaId) || { nombre: "Sin día", dia: "", color: "#737373", bg: "#f5f5f5", border: "#e5e5e5" };
   const conflicts = findConflicts(s);
   const endLabel = minutesToLabel(timeToMinutes(s.start) + Number(s.duration));
   const modClass = s.modalidad === "Presencial" ? "presencial" : "virtual";
   const barColor = s.modalidad === "Presencial" ? "#0e7490" : "#5b5fc7";
+  const { modulos, roles, modulosSugeridos, rolesSugeridos } = effectiveModulosRoles(s);
   return `
     <div class="scard" data-id="${s.id}" style="border-left-color:${barColor}">
       ${conflicts.length ? `<div class="tchip" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626;align-self:flex-start">Choque de sala con otra sesión</div>` : ""}
@@ -913,8 +931,8 @@ function sessionCardHtml(s) {
       </div>
       ${s.lugar ? `<div class="field-label-mini">${s.modalidad === "Presencial" ? "Sala" : "Link"}</div><div style="font-size:12.5px;color:var(--gray-700);word-break:break-all">${escapeHtml(s.lugar)}</div>` : ""}
       ${s.objetivo ? `<div style="font-size:12.5px;color:var(--gray-600)">${escapeHtml(s.objetivo)}</div>` : ""}
-      ${(s.modulos || []).length ? `<div><div class="field-label-mini">Módulos</div><div class="taglist">${s.modulos.map(m => `<span>${escapeHtml(m)}</span>`).join("")}</div></div>` : ""}
-      ${(s.roles || []).length ? `<div><div class="field-label-mini">Roles</div><div class="taglist roles">${s.roles.map(r => `<span>${escapeHtml(r)}</span>`).join("")}</div></div>` : ""}
+      ${modulos.length ? `<div><div class="field-label-mini">Módulos${modulosSugeridos ? ' <span style="font-weight:400;color:var(--gray-400)">(sugeridos de la plantilla — edita y guarda para fijarlos)</span>' : ""}</div><div class="taglist">${modulos.map(m => `<span>${escapeHtml(m)}</span>`).join("")}</div></div>` : ""}
+      ${roles.length ? `<div><div class="field-label-mini">Roles${rolesSugeridos ? ' <span style="font-weight:400;color:var(--gray-400)">(sugeridos de la plantilla)</span>' : ""}</div><div class="taglist roles">${roles.map(r => `<span>${escapeHtml(r)}</span>`).join("")}</div></div>` : ""}
       ${(s.implementadores || []).length ? `<div><div class="field-label-mini">Implementador(es)</div><div class="taglist impl">${s.implementadores.map(i => `<span>${escapeHtml(i)}</span>`).join("")}</div></div>` : ""}
       ${(s.hallazgos || []).length ? `<div class="tchip" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;align-self:flex-start">${s.hallazgos.length} hallazgo${s.hallazgos.length > 1 ? "s" : ""}</div>` : ""}
       <div class="card-actions">
@@ -930,12 +948,13 @@ function sessionCompactRowHtml(s) {
   const endLabel = minutesToLabel(timeToMinutes(s.start) + Number(s.duration));
   const modClass = s.modalidad === "Presencial" ? "presencial" : "virtual";
   const barColor = s.modalidad === "Presencial" ? "#0e7490" : "#5b5fc7";
+  const { modulos, modulosSugeridos } = effectiveModulosRoles(s);
   return `
     <div class="scard compact-row" data-id="${s.id}" style="border-left-color:${barColor}">
       <span class="compact-time">${s.start}–${endLabel}</span>
       <span class="compact-badge" style="background:${dia.bg};border-color:${dia.border};color:${dia.color}">Día ${dia.dia || ""}</span>
       <span class="compact-name" title="${escapeHtml(dia.nombre)}">${escapeHtml(dia.nombre)}</span>
-      ${s.modulos && s.modulos.length ? `<span class="compact-modulos" title="${escapeHtml(s.modulos.join(", "))}">${escapeHtml(s.modulos.join(", "))}</span>` : ""}
+      ${modulos.length ? `<span class="compact-modulos${modulosSugeridos ? " suggested" : ""}" title="${escapeHtml((modulosSugeridos ? "Sugerido de la plantilla — aún no guardado en la sesión: " : "") + modulos.join(", "))}">${escapeHtml(modulos.join(", "))}</span>` : ""}
       ${s.fase ? `<span class="tchip" style="background:var(--gray-100);border-color:var(--gray-200);color:var(--gray-700)">${escapeHtml(s.fase)}</span>` : ""}
       <span class="tchip t-modal ${modClass}">${escapeHtml(s.modalidad)}</span>
       ${conflicts.length ? `<span class="tchip" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626" title="Choque de sala con otra sesión">Choque</span>` : ""}
@@ -1379,19 +1398,37 @@ async function parseTemplateWorkbook(file) {
   const XLSX = await import("https://esm.sh/xlsx@0.18.5");
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array" });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-  if (!rows.length) throw new Error("El archivo no tiene filas de datos.");
-
-  const headerKeys = Object.keys(rows[0]);
   const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const findKey = (...patterns) => headerKeys.find(k => patterns.some(p => norm(k).includes(p)));
-  const kDia = findKey("dia");
-  const kRoles = findKey("rol");
-  const kModulos = findKey("modulo");
-  const kDuracion = findKey("duracion total") || findKey("duracion");
-  if (!kDia || !kRoles || !kModulos) {
-    throw new Error('No se encontraron columnas de "Día", "Rol(es)" y "Módulos" en el archivo. Revisa los encabezados de tu hoja.');
+
+  // Un libro de Excel puede traer varias hojas (resumen, datos crudos,
+  // tablas dinámicas, etc.) y la que nos interesa —la que tiene Día,
+  // Rol(es) y Módulos— no siempre es la primera. Se revisan todas las
+  // hojas en orden y se usa la primera que tenga esas tres columnas.
+  let rows = null, headerKeys = null, kDia = null, kRoles = null, kModulos = null, kDuracion = null;
+  const hojasRevisadas = [];
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    const sheetRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    if (!sheetRows.length) continue;
+    const keys = Object.keys(sheetRows[0]);
+    const findKey = (...patterns) => keys.find(k => patterns.some(p => norm(k).includes(p)));
+    const dDia = findKey("dia");
+    const dRoles = findKey("rol");
+    const dModulos = findKey("modulo");
+    hojasRevisadas.push(sheetName);
+    if (dDia && dRoles && dModulos) {
+      rows = sheetRows;
+      headerKeys = keys;
+      kDia = dDia; kRoles = dRoles; kModulos = dModulos;
+      kDuracion = findKey("duracion total") || findKey("duracion");
+      break;
+    }
+  }
+  if (!rows) {
+    throw new Error(
+      'No se encontraron columnas de "Día", "Rol(es)" y "Módulos" en ninguna hoja del archivo (se revisaron: ' +
+      (hojasRevisadas.join(", ") || "ninguna con datos") + '). Revisa los encabezados de tu hoja.'
+    );
   }
 
   const result = {};
