@@ -1614,5 +1614,60 @@ document.getElementById("templateSaveBtn").onclick = async () => {
   const topStatus = document.getElementById("templateStatus");
   // Feedback inmediato en el botón: si el usuario tiene la vista larga de la
   // plantilla desplazada hacia abajo (donde están los botones), antes solo se
+  // veía el mensaje de arriba — que quedaba fuera de la vista y parecía que
+  // "no avanzaba". Ahora el botón mismo cambia de texto, y hay un mensaje
+  // junto a los botones (siempre visible, sin necesidad de hacer scroll).
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Guardando...";
+  footStatus.style.color = "var(--gray-500)";
+  footStatus.textContent = "";
+  try {
+    Object.entries(pendingTemplate).forEach(([diaId, t]) => { agendaTemplate[diaId] = t; });
+    let cloudResult = { ok: true };
+    if (mode === "cloud") cloudResult = await saveTemplateToSupabase(pendingTemplate);
+    if (cloudResult.ok) {
+      const msg = 'Plantilla guardada — se usará la próxima vez que uses "Asignar semana".';
+      topStatus.style.color = "var(--gray-500)";
+      topStatus.textContent = msg;
+      footStatus.style.color = "var(--green-600, #16a34a)";
+      footStatus.textContent = "✓ Guardada";
+      saveBtn.textContent = "Guardado";
+    } else {
+      // La plantilla ya quedó aplicada en esta pestaña (por eso "Asignar
+      // semana" la va a usar de inmediato), pero no se pudo sincronizar a
+      // Supabase — lo más probable es que falte correr de nuevo
+      // supabase/schema.sql (agregamos la columna "bloques").
+      const msg = 'Se aplicó aquí, pero no se pudo guardar en Supabase: ' +
+        (cloudResult.error?.message || "error desconocido") +
+        '. Revisa que hayas corrido de nuevo supabase/schema.sql en el SQL Editor (agrega la columna "bloques" a agenda_template) y vuelve a intentar.';
+      topStatus.style.color = "var(--red-600)";
+      topStatus.textContent = msg;
+      footStatus.style.color = "var(--red-600)";
+      footStatus.textContent = "⚠ No se sincronizó con Supabase — revisa el detalle arriba";
+      saveBtn.textContent = "Guardar plantilla";
+      saveBtn.disabled = false;
+      return;
+    }
+  } catch (err) {
+    console.error("[Agenda MIND] Error inesperado guardando la plantilla:", err);
+    topStatus.style.color = "var(--red-600)";
+    topStatus.textContent = "Ocurrió un error inesperado guardando la plantilla: " + (err?.message || err);
+    footStatus.style.color = "var(--red-600)";
+    footStatus.textContent = "⚠ No se guardó — revisa el detalle arriba";
+    saveBtn.textContent = "Guardar plantilla";
+    saveBtn.disabled = false;
+    return;
+  }
+  // Sube el cuerpo del modal para que el mensaje de arriba sea visible aunque
+  // el usuario estuviera revisando el desglose hasta abajo.
+  document.querySelector("#templateModal .modal-body")?.scrollTo({ top: 0, behavior: "smooth" });
+};
 
-   
+/* ============================================================
+   ARRANQUE
+   ============================================================ */
+// El día de capacitación (Día 1-5) y la fase general son catálogos fijos que
+// no dependen de la conexión a Supabase: se llenan de inmediato para que el
+// formulario nunca se vea vacío mientras se resuelve la conexión a la nube.
+fillSelectObjects("f_dia", DIAS, "Seleccionar día...", false);
+initBackend();
