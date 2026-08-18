@@ -257,7 +257,11 @@ async function seedTemplateInSupabase() {
 async function saveTemplateToSupabase(partialTemplate) {
   const rows = Object.entries(partialTemplate).map(([dia_id, t]) => ({ dia_id, roles: t.roles, modulos: t.modulos, duracion: t.duracion, bloques: t.bloques || [] }));
   const { error } = await supabase.from(TEMPLATE_TABLE).upsert(rows, { onConflict: "dia_id" });
-  if (error) console.error("[Agenda MIND] Error guardando la plantilla de agenda:", error);
+  if (error) {
+    console.error("[Agenda MIND] Error guardando la plantilla de agenda:", error);
+    return { ok: false, error };
+  }
+  return { ok: true };
 }
 
 async function initBackend() {
@@ -1569,7 +1573,10 @@ document.getElementById("importTemplateBtn").onclick = () => {
   document.getElementById("templateFile").value = "";
   document.getElementById("templateStatus").textContent = "";
   document.getElementById("templatePreview").innerHTML = "";
-  document.getElementById("templateSaveBtn").disabled = true;
+  const saveBtn = document.getElementById("templateSaveBtn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Guardar plantilla";
+  document.getElementById("templateFootStatus").textContent = "";
   pendingTemplate = null;
   templateModal.classList.add("show");
 };
@@ -1585,6 +1592,8 @@ document.getElementById("templateAnalyzeBtn").onclick = async () => {
   if (!file) { status.textContent = "Primero elige un archivo .xlsx o .csv."; return; }
   status.textContent = "Analizando...";
   saveBtn.disabled = true;
+  saveBtn.textContent = "Guardar plantilla";
+  document.getElementById("templateFootStatus").textContent = "";
   document.getElementById("templatePreview").innerHTML = "";
   try {
     pendingTemplate = await parseTemplateWorkbook(file);
@@ -1600,17 +1609,10 @@ document.getElementById("templateAnalyzeBtn").onclick = async () => {
 
 document.getElementById("templateSaveBtn").onclick = async () => {
   if (!pendingTemplate || !Object.keys(pendingTemplate).length) return;
-  Object.entries(pendingTemplate).forEach(([diaId, t]) => { agendaTemplate[diaId] = t; });
-  if (mode === "cloud") await saveTemplateToSupabase(pendingTemplate);
-  document.getElementById("templateStatus").textContent = 'Plantilla guardada — se usará la próxima vez que uses "Asignar semana".';
-  document.getElementById("templateSaveBtn").disabled = true;
-};
+  const saveBtn = document.getElementById("templateSaveBtn");
+  const footStatus = document.getElementById("templateFootStatus");
+  const topStatus = document.getElementById("templateStatus");
+  // Feedback inmediato en el botón: si el usuario tiene la vista larga de la
+  // plantilla desplazada hacia abajo (donde están los botones), antes solo se
 
-/* ============================================================
-   ARRANQUE
-   ============================================================ */
-// El día de capacitación (Día 1-5) y la fase general son catálogos fijos que
-// no dependen de la conexión a Supabase: se llenan de inmediato para que el
-// formulario nunca se vea vacío mientras se resuelve la conexión a la nube.
-fillSelectObjects("f_dia", DIAS, "Seleccionar día...", false);
-initBackend();
+   
